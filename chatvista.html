@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>     
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>
+            Chat Vista Alegre
+        </title>
+        <style>
+            h1{
+                text-align: center;
+                font-family:"Brush Script MT", cursive;
+                color: black;
+            }
+
+            p{
+                text-align: center;
+                font-family: Georgia, 'Times New Roman', Times, serif;
+                color: black;
+            }
+
+            body {  
+                font-family: Arial, sans-serif;
+                /* Fundo com imagem de favela colorida */
+                background: url('https://img.freepik.com/premium-vector/playful-favela-doodle-vector-art-illustration-with-bold-colors-graffiti-white-background_992796-629.jpg?w=2000') no-repeat center center fixed;
+                background-size: cover;
+                margin: 0;
+                min-height: 100vh;
+            }
+
+            .container {
+                width: 300px;  
+                margin: 40px auto 0 auto;
+                padding: 20px;
+                background-color: rgba(255,255,255,0.93);
+                border: 1px solid #ccc;
+                border-radius: 14px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+                position: relative;
+                z-index: 2;
+            }   
+
+            input[type="text"],
+            input[type="password"] {
+                width: 90%;
+                padding: 10px;
+                margin-bottom: 16px;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                font-size: 1em;
+            }
+
+            button[type="submit"] {
+                width: 100%;
+                padding: 10px;
+                background-color: #007bff;
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-size: 1em;
+                cursor: pointer;
+                transition: background 0.2s;
+            }   
+
+            button[type="submit"]:hover {
+                background-color: #ffc107;
+                color: #222;
+            }
+
+            .logo-img {
+                display: block;
+                margin: 40px auto 20px auto;
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+                z-index: 2;
+                position: relative;
+            }
+        </style>
+    </head>
+    <body>
+        <div style="text-align: center;">
+            <img src="vistaalegre.jpg.jpg" alt="vista alegre" width="340" height="300" class="logo-img">
+        </div>
+
+        <div class="container">
+            <form id="loginForm">
+                <button type="submit">Entrar</button>
+            </form>
+        </div>
+
+        <script>
+            // Redireciona ao clicar em "Entrar"
+            document.getElementById('loginForm').addEventListener('submit', function(event) {
+                event.preventDefault(); // Impede o envio padrão do formulário
+                window.location.href = "SALA.html"; // Redireciona para SALA.html
+            });
+        </script>
+    </body>
+</html>

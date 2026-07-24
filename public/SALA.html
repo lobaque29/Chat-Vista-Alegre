@@ -544,6 +544,17 @@
         .subscribe();
     }
 
+    function formatSupabaseError(error) {
+      if (!error) return 'erro desconhecido';
+      const parts = [];
+      if (error.code) parts.push(`code=${error.code}`);
+      if (error.message) parts.push(error.message);
+      if (error.details) parts.push(error.details);
+      if (error.hint) parts.push(`hint=${error.hint}`);
+      if (parts.length === 0) return String(error);
+      return parts.join(' | ');
+    }
+
     mainChatForm.addEventListener('submit', async function (e) {
       e.preventDefault();
       if (!canUseRealtime || !currentUser) return;
@@ -706,14 +717,16 @@
           await loadInitialMessages();
           bindPresence();
           bindMessageRealtime();
-        } catch {
+        } catch (loadError) {
           useBroadcastFallback = true;
           bindPresence();
           bindBroadcastRealtime();
           setInputsDisabled(false);
           const avisoFallback = document.createElement('div');
           avisoFallback.className = 'message';
-          avisoFallback.textContent = 'Chat em modo simplificado: mensagens em tempo real ativas. Configure tabela/bucket no Supabase para histórico e áudio.';
+          const errorText = formatSupabaseError(loadError);
+          console.warn('Fallback ativado no chat:', loadError);
+          avisoFallback.textContent = `Chat em modo simplificado: mensagens em tempo real ativas. Motivo: ${errorText}. Configure tabela/bucket no Supabase para histórico e áudio.`;
           messagesDiv.appendChild(avisoFallback);
         }
       } catch {

@@ -93,11 +93,19 @@
     }
     .input-area input[type="text"] {
       flex: 1;
-      min-width: 130px;
-      padding: 12px;
+      min-width: 110px;
+      padding: 10px;
       border-radius: 8px;
       border: 1px solid #ccc;
-      font-size: 1.02rem;
+      font-size: 0.96rem;
+    }
+    .input-area #username {
+      flex: 0 0 120px;
+      max-width: 120px;
+    }
+    .input-area #messageInput {
+      flex: 1 1 260px;
+      min-width: 180px;
     }
     .input-area input[type="file"] {
       display: none;
@@ -130,16 +138,22 @@
       box-shadow: none;
     }
     .input-area button {
-      padding: 12px 18px;
-      border-radius: 8px;
+      padding: 9px 12px;
+      border-radius: 7px;
       border: none;
       background: #2563eb;
       color: #fff;
-      font-size: 1rem;
+      font-size: 0.92rem;
       font-weight: 700;
+      line-height: 1;
       cursor: pointer;
       transition: background 0.2s;
-      min-height: 46px;
+      min-height: 38px;
+    }
+    .input-area button[type="submit"],
+    #audioBtn,
+    #fileBtn {
+      min-width: 92px;
     }
     .input-area button:hover {
       background: #60a5fa;
@@ -551,13 +565,13 @@
       <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
       <label class="sr-only" for="colorPicker">Cor do nome</label>
       <input type="color" id="colorPicker" value="#2563eb" title="Escolha a cor do nome">
+      <label class="sr-only" for="mainFileInput">Arquivo</label>
+      <input type="file" id="mainFileInput" title="Escolha um arquivo para enviar">
+      <button id="fileBtn" type="button">📎 Arquivo</button>
       <label class="sr-only" for="username">Nome de usuário</label>
       <input type="text" id="username" placeholder="Seu nome" maxlength="16">
       <label class="sr-only" for="messageInput">Mensagem</label>
       <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-      <label class="sr-only" for="mainFileInput">Arquivo</label>
-      <input type="file" id="mainFileInput" title="Escolha um arquivo para enviar">
-      <button id="fileBtn" type="button">📎 Arquivo</button>
       <button type="submit">Enviar</button>
       <button id="audioBtn" type="button">🎤 Áudio</button>
       <span id="recordingStatus" class="recording" hidden>Gravando...</span>

@@ -217,21 +217,26 @@
       }
 
       .chat-container {
-        width: calc(100% - 16px);
-        height: calc(100dvh - 16px);
-        min-height: 440px;
+        width: calc(100% - 12px);
+        height: calc(100dvh - 12px);
+        min-height: 0;
         margin: 8px auto;
+        padding: 12px;
       }
 
       .input-area {
         display: grid;
-        grid-template-columns: 44px 1fr 44px;
+        grid-template-columns: 38px 44px 1fr 1fr;
         gap: 6px;
       }
 
-      #username,
+      #username {
+        grid-column: 3 / 5;
+        max-width: none;
+      }
+
       #messageInput {
-        grid-column: span 3;
+        grid-column: 1 / -1;
       }
 
       .input-area button {
@@ -248,38 +253,78 @@
         padding: 6px;
       }
 
-      .input-area button[type="submit"],
+      .input-area button[type="submit"] {
+        grid-column: 1 / 3;
+      }
+
       #audioBtn {
-        grid-column: span 3;
+        grid-column: 3 / 5;
+      }
+
+      #recordingStatus {
+        grid-column: 1 / -1;
       }
     }
 
     @media (max-width: 600px) {
+      .chat-container {
+        width: 100%;
+        height: 100dvh;
+        min-height: 100dvh;
+        margin: 0;
+        border-radius: 0;
+        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+      }
+
       #online-users {
-        font-size: 1rem;
+        font-size: 0.98rem;
+        margin-bottom: 6px;
       }
 
       .messages {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+        padding: 10px;
+        font-size: 0.93rem;
+      }
+
+      .input-area {
+        grid-template-columns: 34px 40px 1fr 1fr;
+        gap: 5px;
       }
 
       .input-area input[type="text"] {
         min-width: 0;
-        padding: 10px;
-        font-size: 0.95rem;
+        padding: 9px;
+        font-size: 0.9rem;
       }
 
       .input-area button {
-        min-height: 36px;
-        padding: 7px 10px;
-        font-size: 0.9rem;
+        min-height: 34px;
+        padding: 6px 8px;
+        font-size: 0.86rem;
       }
 
       .input-area select,
       .input-area input[type="color"] {
-        min-height: 34px;
-        min-width: 40px;
-        padding: 5px;
+        min-height: 32px;
+        min-width: 38px;
+        padding: 4px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .input-area {
+        grid-template-columns: 30px 36px 1fr 1fr;
+      }
+
+      .avatar-preview {
+        width: 28px;
+        height: 28px;
+      }
+
+      .input-area button {
+        min-height: 32px;
+        font-size: 0.82rem;
       }
     }
     .private-chat {
@@ -567,7 +612,6 @@
       <input type="color" id="colorPicker" value="#2563eb" title="Escolha a cor do nome">
       <label class="sr-only" for="mainFileInput">Arquivo</label>
       <input type="file" id="mainFileInput" title="Escolha um arquivo para enviar">
-      <button id="fileBtn" type="button">📎 Arquivo</button>
       <label class="sr-only" for="username">Nome de usuário</label>
       <input type="text" id="username" placeholder="Seu nome" maxlength="16">
       <label class="sr-only" for="messageInput">Mensagem</label>
@@ -1921,10 +1965,12 @@
       }
     });
 
-    fileBtn.addEventListener('click', function () {
-      if (!mainFileInput || mainFileInput.disabled) return;
-      mainFileInput.click();
-    });
+    if (fileBtn) {
+      fileBtn.addEventListener('click', function () {
+        if (!mainFileInput || mainFileInput.disabled) return;
+        mainFileInput.click();
+      });
+    }
 
     mainFileInput.addEventListener('change', async function () {
       const file = mainFileInput.files && mainFileInput.files[0];

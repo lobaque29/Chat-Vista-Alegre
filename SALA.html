@@ -562,6 +562,9 @@
     const FORCE_BROADCAST_MODE = false;
     let presenceChannel = null;
     let messagesChannel = null;
+    let broadcastChannel = null;
+    let broadcastReady = false;
+    let dbReady = false;
     let supabase = null;
 
     const renderedMessageKeys = new Set();
@@ -576,6 +579,7 @@
     let privateSendBtn = null;
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
+    let messagePollingInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
@@ -908,6 +912,33 @@
       });
     }
 
+    async function pollLatestMessages() {
+      if (!supabase) return;
+
+      const { data, error } = await supabase
+        .from(supabaseConfig.messagesTable)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      if (error) return;
+
+      (data || []).reverse().forEach(function (row) {
+        renderIncomingMessage(buildMessageKey(row), row);
+      });
+    }
+
+    function startMessagePolling() {
+      if (messagePollingInterval) {
+        clearInterval(messagePollingInterval);
+      }
+
+      pollLatestMessages().catch(function () {});
+      messagePollingInterval = setInterval(function () {
+        pollLatestMessages().catch(function () {});
+      }, 2500);
+    }
+
     function updatePresenceCount() {
       if (!presenceChannel) return;
       const presenceState = presenceChannel.presenceState();
@@ -966,7 +997,8 @@
     }
 
     function bindBroadcastRealtime() {
-      messagesChannel = supabase
+      broadcastReady = false;
+      broadcastChannel = supabase
         .channel(`broadcast:${supabaseConfig.roomName}`)
         .on('broadcast', { event: 'message' }, function (payload) {
           if (!payload || !payload.payload) return;
@@ -974,7 +1006,30 @@
           const key = buildMessageKey(incoming);
           renderIncomingMessage(key, incoming);
         })
-        .subscribe();
+        .subscribe(function (status) {
+          if (status === 'SUBSCRIBED') {
+            broadcastReady = true;
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            broadcastReady = false;
+          }
+        });
+    }
+
+    async function checkDatabaseAccess() {
+      const { error } = await supabase
+        .from(supabaseConfig.messagesTable)
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        dbReady = false;
+        useBroadcastFallback = true;
+        return;
+      }
+
+      dbReady = true;
+      useBroadcastFallback = false;
     }
 
     function formatSupabaseError(error) {
@@ -1300,14 +1355,23 @@
       };
 
       try {
-        if (useBroadcastFallback) {
-          payload.id = `${currentUser.uid}-${Date.now()}`;
-          await messagesChannel.send({ type: 'broadcast', event: 'message', payload });
-          renderIncomingMessage(buildMessageKey(payload), payload);
-        } else {
-          await supabase.from(supabaseConfig.messagesTable).insert(payload);
-          renderIncomingMessage(buildMessageKey(payload), payload);
+        payload.id = `${currentUser.uid}-${Date.now()}`;
+
+        if (broadcastChannel && broadcastReady) {
+          await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
+        } else if (useBroadcastFallback) {
+          throw new Error('Canal broadcast indisponível');
         }
+
+        if (!useBroadcastFallback && dbReady) {
+          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          if (insertError) {
+            dbReady = false;
+            useBroadcastFallback = true;
+          }
+        }
+
+        renderIncomingMessage(buildMessageKey(payload), payload);
 
         lockUsernameChoice();
         messageInput.value = '';
@@ -1481,13 +1545,13 @@
         currentUser = { uid: getOrCreateClientId() };
         canUseRealtime = true;
         bindPrivateInbox();
-
-        await cleanupAllMessages();
+        bindBroadcastRealtime();
+        await checkDatabaseAccess();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
           bindPresence();
-          bindBroadcastRealtime();
+          startMessagePolling();
           setInputsDisabled(false);
           const avisoFallback = document.createElement('div');
           avisoFallback.className = 'message';
@@ -1503,11 +1567,21 @@
             messagesDiv.innerHTML = '';
           }
           bindPresence();
-          bindMessageRealtime();
+          if (dbReady) {
+            bindMessageRealtime();
+          }
+          startMessagePolling();
+
+          if (!dbReady) {
+            const avisoDb = document.createElement('div');
+            avisoDb.className = 'message';
+            avisoDb.textContent = 'Banco indisponível no Supabase. Chat funcionando em modo de compatibilidade.';
+            messagesDiv.appendChild(avisoDb);
+          }
         } catch (loadError) {
           useBroadcastFallback = true;
           bindPresence();
-          bindBroadcastRealtime();
+          startMessagePolling();
           setInputsDisabled(false);
           const avisoFallback = document.createElement('div');
           avisoFallback.className = 'message';
@@ -1526,12 +1600,18 @@
     }
 
     window.addEventListener('beforeunload', function () {
-      cleanupAllMessages({ keepalive: true });
+      if (messagePollingInterval) {
+        clearInterval(messagePollingInterval);
+        messagePollingInterval = null;
+      }
       if (presenceChannel) {
         presenceChannel.unsubscribe();
       }
       if (messagesChannel) {
         messagesChannel.unsubscribe();
+      }
+      if (broadcastChannel) {
+        broadcastChannel.unsubscribe();
       }
       if (privateInboxChannel) {
         privateInboxChannel.unsubscribe();

@@ -103,6 +103,17 @@
       max-width: 180px;
       font-size: 0.85rem;
     }
+    .avatar-preview {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      overflow: hidden;
+    }
     .input-area button {
       padding: 12px 18px;
       border-radius: 8px;
@@ -165,7 +176,7 @@
 
       .input-area {
         display: grid;
-        grid-template-columns: 50px 50px 1fr;
+        grid-template-columns: 44px 1fr 44px;
         gap: 6px;
       }
 
@@ -202,31 +213,10 @@
       .messages {
         margin-bottom: 10px;
       }
-
-      .input-area input[type="text"] {
-        min-width: 0;
-        padding: 10px;
-        font-size: 0.95rem;
-      }
-
-      .input-area button {
-        min-height: 36px;
-        padding: 7px 10px;
-        font-size: 0.9rem;
-      }
-
-      .input-area select,
-      .input-area input[type="color"] {
-        min-height: 34px;
-        min-width: 40px;
-        padding: 5px;
-      }
-    }
-    /* Estilo para janela privada */
-    .private-chat {
-      position: fixed;
+        <span id="avatarPreview" class="avatar-preview" aria-hidden="true"></span>
       right: 12px;
-      bottom: max(12px, env(safe-area-inset-bottom));
+        <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
+        <button id="clearProfileBtn" type="button" title="Limpar perfil">✕</button>
       width: min(370px, calc(100vw - 24px));
       background: rgba(255,255,255,0.98); /* Fundo branco moderno */
       border: 2px solid #2563eb;
@@ -511,31 +501,10 @@
     </div>
     <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat"></div>
     <form class="input-area" id="mainChatForm" autocomplete="off">
-      <label class="sr-only" for="emojiSelect">Emoji</label>
-      <select id="emojiSelect" title="Escolha um emoji">
-        <option value="😀">😀</option>
-        <option value="😎">😎</option>
-        <option value="😂">😂</option>
-        <option value="😍">😍</option>
-        <option value="🤩">🤩</option>
-        <option value="🥳">🥳</option>
-        <option value="😇">😇</option>
-        <option value="🤠">🤠</option>
-        <option value="👽">👽</option>
-        <option value="🦁">🦁</option>
-        <option value="🐱">🐱</option>
-        <option value="🐶">🐶</option>
-        <option value="⚽">⚽</option>
-        <option value="🎮">🎮</option>
-        <option value="🎤">🎤</option>
-      </select>
-      <label class="sr-only" for="avatarMode">Tipo de avatar</label>
-      <select id="avatarMode" title="Escolha emoji ou foto">
-        <option value="emoji">😀 Emoji</option>
-        <option value="photo">📷 Foto</option>
-      </select>
+      <span id="avatarPreview" class="avatar-preview" aria-hidden="true"></span>
       <label class="sr-only" for="avatarPhotoInput">Foto do avatar</label>
-      <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar" hidden>
+      <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
+      <button id="clearProfileBtn" type="button" title="Limpar perfil">✕</button>
       <label class="sr-only" for="colorPicker">Cor do nome</label>
       <input type="color" id="colorPicker" value="#2563eb" title="Escolha a cor do nome">
       <label class="sr-only" for="username">Nome de usuário</label>
@@ -555,9 +524,9 @@
     const mainChatForm = document.getElementById('mainChatForm');
     const usernameInput = document.getElementById('username');
     const messageInput = document.getElementById('messageInput');
-    const emojiSelect = document.getElementById('emojiSelect');
-    const avatarModeSelect = document.getElementById('avatarMode');
+    const avatarPreview = document.getElementById('avatarPreview');
     const avatarPhotoInput = document.getElementById('avatarPhotoInput');
+    const clearProfileBtn = document.getElementById('clearProfileBtn');
     const colorPicker = document.getElementById('colorPicker');
     const audioBtn = document.getElementById('audioBtn');
     const recordingStatus = document.getElementById('recordingStatus');
@@ -590,6 +559,7 @@
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
+    const DEFAULT_AVATAR_SYMBOL = '👤';
 
     function isSupabaseConfigured() {
       return (
@@ -614,9 +584,7 @@
       try {
         const snapshot = {
           username: usernameInput.value || '',
-          emoji: emojiSelect.value || '😀',
           color: colorPicker.value || '#2563eb',
-          avatarMode: avatarModeSelect.value === 'photo' ? 'photo' : 'emoji',
           avatarImage: avatarPhotoDataUrl || ''
         };
         window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(snapshot));
@@ -633,21 +601,8 @@
           usernameInput.value = saved.username;
         }
 
-        if (saved && typeof saved.emoji === 'string') {
-          const optionExists = Array.from(emojiSelect.options).some(function (opt) {
-            return opt.value === saved.emoji;
-          });
-          if (optionExists) emojiSelect.value = saved.emoji;
-        }
-
         if (saved && typeof saved.color === 'string') {
           colorPicker.value = saved.color;
-        }
-
-        if (saved && saved.avatarMode === 'photo') {
-          avatarModeSelect.value = 'photo';
-        } else {
-          avatarModeSelect.value = 'emoji';
         }
 
         if (saved && typeof saved.avatarImage === 'string' && saved.avatarImage.startsWith('data:image/')) {
@@ -661,7 +616,7 @@
         id: payload.id || payload.created_at || payload.createdAt || payload.audio_url || payload.text,
         userId: payload.user_id || payload.userId || '',
         username: payload.username || 'Anônimo',
-        emoji: payload.emoji || '😀',
+        emoji: payload.emoji || DEFAULT_AVATAR_SYMBOL,
         avatarType: payload.avatar_type || payload.avatarType || 'emoji',
         avatarImage: payload.avatar_image || payload.avatarImage || '',
         color: payload.color || '#2563eb',
@@ -681,7 +636,7 @@
         img.alt = 'avatar';
         badge.appendChild(img);
       } else {
-        badge.textContent = emoji || '😀';
+        badge.textContent = emoji || DEFAULT_AVATAR_SYMBOL;
       }
 
       return badge;
@@ -702,12 +657,18 @@
 
       usernameTag.dataset.userId = message.userId || '';
       usernameTag.dataset.username = message.username || 'Anônimo';
-      usernameTag.dataset.emoji = message.emoji || '😀';
+      usernameTag.dataset.emoji = message.emoji || DEFAULT_AVATAR_SYMBOL;
       usernameTag.dataset.avatarType = message.avatarType || 'emoji';
       usernameTag.dataset.avatarImage = message.avatarImage || '';
       usernameTag.dataset.color = message.color || '#2563eb';
       usernameTag.title = 'Clique para abrir conversa privada';
       return usernameTag;
+    }
+
+    function refreshAvatarPreview() {
+      if (!avatarPreview) return;
+      avatarPreview.innerHTML = '';
+      avatarPreview.appendChild(createAvatarBadge(avatarPhotoDataUrl ? 'photo' : 'emoji', avatarPhotoDataUrl, DEFAULT_AVATAR_SYMBOL));
     }
 
     function renderTextMessage(payload) {
@@ -748,11 +709,10 @@
     }
 
     function getCurrentProfile() {
-      const selectedMode = avatarModeSelect.value;
-      const resolvedAvatarType = selectedMode === 'photo' && avatarPhotoDataUrl ? 'photo' : 'emoji';
+      const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
       return {
         username: usernameInput.value.trim() || 'Anônimo',
-        emoji: emojiSelect.value,
+        emoji: DEFAULT_AVATAR_SYMBOL,
         avatarType: resolvedAvatarType,
         avatarImage: resolvedAvatarType === 'photo' ? avatarPhotoDataUrl : '',
         color: colorPicker.value
@@ -760,10 +720,8 @@
     }
 
     function updateAvatarInputState() {
-      const usePhoto = avatarModeSelect.value === 'photo';
-      avatarPhotoInput.hidden = !usePhoto;
-      avatarPhotoInput.disabled = !usePhoto;
-      emojiSelect.disabled = usePhoto || messageInput.disabled;
+      avatarPhotoInput.disabled = messageInput.disabled;
+      refreshAvatarPreview();
     }
 
     async function buildAvatarDataUrl(file) {
@@ -899,14 +857,10 @@
     function setInputsDisabled(disabled) {
       usernameInput.disabled = disabled || usernameLocked;
       messageInput.disabled = disabled;
-      avatarModeSelect.disabled = disabled;
-      if (disabled) {
-        emojiSelect.disabled = true;
-        avatarPhotoInput.disabled = true;
-      } else {
-        updateAvatarInputState();
-      }
+      avatarPhotoInput.disabled = disabled;
+      updateAvatarInputState();
       colorPicker.disabled = disabled;
+      clearProfileBtn.disabled = disabled;
       audioBtn.disabled = disabled;
       const submitBtn = mainChatForm.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = disabled;
@@ -1058,7 +1012,7 @@
       const avatar = createAvatarBadge(
         message.from_avatar_type || 'emoji',
         message.from_avatar_image || '',
-        message.from_emoji || '😀'
+        message.from_emoji || DEFAULT_AVATAR_SYMBOL
       );
       const name = document.createElement('strong');
       name.style.marginRight = '4px';
@@ -1245,10 +1199,9 @@
       activePrivateTarget = {
         userId: target.userId || '',
         username: target.username || 'Anônimo',
-        emoji: target.emoji || '😀',
         color: target.color || '#2563eb'
       };
-      privateTitleElem.textContent = `Privado com ${target.emoji || '😀'} ${target.username}`;
+      privateTitleElem.textContent = `Privado com ${target.username}`;
       renderPrivateConversation();
 
       const canSend = Boolean(activePrivateTarget.userId) && activePrivateTarget.userId !== currentUser.uid;
@@ -1286,7 +1239,6 @@
 
       let targetUserId = targetElem.dataset.userId || '';
       const targetUsername = targetElem.dataset.username || 'Anônimo';
-      const targetEmoji = targetElem.dataset.emoji || '😀';
       const targetColor = targetElem.dataset.color || '#2563eb';
 
       if (!targetUserId || targetUserId === currentUser.uid) {
@@ -1297,7 +1249,6 @@
       openPrivateChat({
         userId: targetUserId,
         username: targetUsername,
-        emoji: targetEmoji,
         color: targetColor
       });
     });
@@ -1362,7 +1313,6 @@
     });
 
     usernameInput.addEventListener('change', saveProfilePreference);
-    emojiSelect.addEventListener('change', saveProfilePreference);
     colorPicker.addEventListener('change', saveProfilePreference);
 
     usernameInput.addEventListener('input', function () {
@@ -1371,15 +1321,11 @@
       trackPresence().catch(function () {});
     });
 
-    avatarModeSelect.addEventListener('change', function () {
-      updateAvatarInputState();
-      saveProfilePreference();
-    });
-
     avatarPhotoInput.addEventListener('change', async function () {
       const file = avatarPhotoInput.files && avatarPhotoInput.files[0];
       if (!file) {
         avatarPhotoDataUrl = '';
+        refreshAvatarPreview();
         saveProfilePreference();
         return;
       }
@@ -1388,18 +1334,33 @@
         alert('Escolha um arquivo de imagem válido para o avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        refreshAvatarPreview();
         saveProfilePreference();
         return;
       }
 
       try {
         avatarPhotoDataUrl = await buildAvatarDataUrl(file);
+        refreshAvatarPreview();
         saveProfilePreference();
       } catch {
         alert('Não foi possível processar a foto do avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        refreshAvatarPreview();
         saveProfilePreference();
+      }
+    });
+
+    clearProfileBtn.addEventListener('click', function () {
+      usernameInput.value = '';
+      colorPicker.value = '#2563eb';
+      avatarPhotoInput.value = '';
+      avatarPhotoDataUrl = '';
+      saveProfilePreference();
+      refreshAvatarPreview();
+      if (usernameLocked) {
+        usernameInput.disabled = true;
       }
     });
 

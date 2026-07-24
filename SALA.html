@@ -743,6 +743,24 @@
       return parts.join(' | ');
     }
 
+    async function cleanupMessagesByUserId(userId, options) {
+      if (!userId || !supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
+      const keepalive = Boolean(options && options.keepalive);
+      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?user_id=eq.${encodeURIComponent(userId)}`;
+      try {
+        await fetch(endpoint, {
+          method: 'DELETE',
+          headers: {
+            apikey: supabaseConfig.anonKey,
+            Authorization: `Bearer ${supabaseConfig.anonKey}`
+          },
+          keepalive
+        });
+      } catch {
+        // Ignora erro para nao bloquear inicializacao/fechamento da pagina.
+      }
+    }
+
     function resolveUserIdByUsername(username) {
       if (!presenceChannel || !username || !currentUser) return '';
       const state = presenceChannel.presenceState();
@@ -1185,6 +1203,8 @@
         canUseRealtime = true;
         bindPrivateInbox();
 
+        await cleanupMessagesByUserId(currentUser.uid);
+
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
           bindPresence();
@@ -1223,6 +1243,9 @@
     }
 
     window.addEventListener('beforeunload', function () {
+      if (currentUser && currentUser.uid) {
+        cleanupMessagesByUserId(currentUser.uid, { keepalive: true });
+      }
       if (presenceChannel) {
         presenceChannel.unsubscribe();
       }

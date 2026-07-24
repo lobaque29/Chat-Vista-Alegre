@@ -213,12 +213,32 @@
       .messages {
         margin-bottom: 10px;
       }
-        <span id="avatarPreview" class="avatar-preview" aria-hidden="true"></span>
+
+      .input-area input[type="text"] {
+        min-width: 0;
+        padding: 10px;
+        font-size: 0.95rem;
+      }
+
+      .input-area button {
+        min-height: 36px;
+        padding: 7px 10px;
+        font-size: 0.9rem;
+      }
+
+      .input-area select,
+      .input-area input[type="color"] {
+        min-height: 34px;
+        min-width: 40px;
+        padding: 5px;
+      }
+    }
+    .private-chat {
+      position: fixed;
       right: 12px;
-        <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
-        <button id="clearProfileBtn" type="button" title="Limpar perfil">✕</button>
+      bottom: max(12px, env(safe-area-inset-bottom));
       width: min(370px, calc(100vw - 24px));
-      background: rgba(255,255,255,0.98); /* Fundo branco moderno */
+      background: rgba(255,255,255,0.98);
       border: 2px solid #2563eb;
       border-radius: 18px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
@@ -229,8 +249,6 @@
       animation: fadeInUp 0.3s;
       transition: height 0.2s, width 0.2s, bottom 0.2s;
       overflow: hidden;
-      /* Removido o fundo de favela */
-      /* background-image: none; */
       background-size: cover;
       background-position: center;
       border-top: 6px solid #2563eb;
@@ -708,6 +726,14 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    function buildMessageKey(payload) {
+      return String(
+        (payload.user_id || payload.userId || 'anon') + '|' +
+        (payload.type || 'text') + '|' +
+        (payload.created_at || payload.createdAt || payload.id || Date.now())
+      );
+    }
+
     function getCurrentProfile() {
       const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
       return {
@@ -878,7 +904,7 @@
       }
 
       (data || []).reverse().forEach(function (row) {
-        renderIncomingMessage(String(row.id || row.created_at), row);
+        renderIncomingMessage(buildMessageKey(row), row);
       });
     }
 
@@ -933,7 +959,7 @@
           },
           function (payload) {
             if (!payload || !payload.new) return;
-            renderIncomingMessage(String(payload.new.id || payload.new.created_at), payload.new);
+            renderIncomingMessage(buildMessageKey(payload.new), payload.new);
           }
         )
         .subscribe();
@@ -945,7 +971,7 @@
         .on('broadcast', { event: 'message' }, function (payload) {
           if (!payload || !payload.payload) return;
           const incoming = payload.payload;
-          const key = String(incoming.id || incoming.created_at || `${incoming.user_id}-${incoming.text}-${Date.now()}`);
+          const key = buildMessageKey(incoming);
           renderIncomingMessage(key, incoming);
         })
         .subscribe();
@@ -1261,35 +1287,26 @@
       const { username, emoji, color, avatarType, avatarImage } = profile;
       const text = messageInput.value.trim();
       if (!text) return;
+      const payload = {
+        user_id: currentUser.uid,
+        username,
+        emoji,
+        avatar_type: avatarType,
+        avatar_image: avatarImage,
+        color,
+        type: 'text',
+        text,
+        created_at: new Date().toISOString()
+      };
 
       try {
         if (useBroadcastFallback) {
-          const payload = {
-            id: `${currentUser.uid}-${Date.now()}`,
-            user_id: currentUser.uid,
-            username,
-            emoji,
-            avatar_type: avatarType,
-            avatar_image: avatarImage,
-            color,
-            type: 'text',
-            text,
-            created_at: new Date().toISOString()
-          };
+          payload.id = `${currentUser.uid}-${Date.now()}`;
           await messagesChannel.send({ type: 'broadcast', event: 'message', payload });
-          renderIncomingMessage(String(payload.id), payload);
+          renderIncomingMessage(buildMessageKey(payload), payload);
         } else {
-          await supabase.from(supabaseConfig.messagesTable).insert({
-            user_id: currentUser.uid,
-            username,
-            emoji,
-            avatar_type: avatarType,
-            avatar_image: avatarImage,
-            color,
-            type: 'text',
-            text,
-            created_at: new Date().toISOString()
-          });
+          await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          renderIncomingMessage(buildMessageKey(payload), payload);
         }
 
         lockUsernameChoice();
@@ -1403,7 +1420,7 @@
             const audioUrl = publicUrlData && publicUrlData.publicUrl;
             if (!audioUrl) throw new Error('Sem URL pública para áudio');
 
-            await supabase.from(supabaseConfig.messagesTable).insert({
+            const payload = {
               user_id: currentUser.uid,
               username: profile.username,
               emoji: profile.emoji,
@@ -1413,7 +1430,10 @@
               type: 'audio',
               audio_url: audioUrl,
               created_at: new Date().toISOString()
-            });
+            };
+
+            await supabase.from(supabaseConfig.messagesTable).insert(payload);
+            renderIncomingMessage(buildMessageKey(payload), payload);
 
             lockUsernameChoice();
           } catch {

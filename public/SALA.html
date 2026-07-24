@@ -698,6 +698,14 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
+    function buildMessageKey(payload) {
+      return String(
+        (payload.user_id || payload.userId || 'anon') + '|' +
+        (payload.type || 'text') + '|' +
+        (payload.created_at || payload.createdAt || payload.id || Date.now())
+      );
+    }
+
     function getCurrentProfile() {
       const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
       return {
@@ -777,7 +785,7 @@
       if (error) throw error;
 
       (data || []).reverse().forEach(function (row) {
-        renderIncomingMessage(String(row.id || row.created_at), row);
+        renderIncomingMessage(buildMessageKey(row), row);
       });
     }
 
@@ -821,7 +829,7 @@
           { event: 'INSERT', schema: 'public', table: supabaseConfig.messagesTable },
           function (payload) {
             if (!payload || !payload.new) return;
-            renderIncomingMessage(String(payload.new.id || payload.new.created_at), payload.new);
+            renderIncomingMessage(buildMessageKey(payload.new), payload.new);
           }
         )
         .subscribe();
@@ -833,7 +841,7 @@
         .on('broadcast', { event: 'message' }, function (payload) {
           if (!payload || !payload.payload) return;
           const incoming = payload.payload;
-          const key = String(incoming.id || incoming.created_at || `${incoming.user_id}-${incoming.text}-${Date.now()}`);
+          const key = buildMessageKey(incoming);
           renderIncomingMessage(key, incoming);
         })
         .subscribe();
@@ -1147,34 +1155,25 @@
       const { username, emoji, color, avatarType, avatarImage } = profile;
       const text = messageInput.value.trim();
       if (!text) return;
+      const payload = {
+        user_id: currentUser.uid,
+        username,
+        emoji,
+        avatar_type: avatarType,
+        avatar_image: avatarImage,
+        color,
+        type: 'text',
+        text,
+        created_at: new Date().toISOString()
+      };
       try {
         if (useBroadcastFallback) {
-          const payload = {
-            id: `${currentUser.uid}-${Date.now()}`,
-            user_id: currentUser.uid,
-            username,
-            emoji,
-            avatar_type: avatarType,
-            avatar_image: avatarImage,
-            color,
-            type: 'text',
-            text,
-            created_at: new Date().toISOString()
-          };
+          payload.id = `${currentUser.uid}-${Date.now()}`;
           await messagesChannel.send({ type: 'broadcast', event: 'message', payload });
-          renderIncomingMessage(String(payload.id), payload);
+          renderIncomingMessage(buildMessageKey(payload), payload);
         } else {
-          await supabase.from(supabaseConfig.messagesTable).insert({
-            user_id: currentUser.uid,
-            username,
-            emoji,
-            avatar_type: avatarType,
-            avatar_image: avatarImage,
-            color,
-            type: 'text',
-            text,
-            created_at: new Date().toISOString()
-          });
+          await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          renderIncomingMessage(buildMessageKey(payload), payload);
         }
         lockUsernameChoice();
         messageInput.value = '';
@@ -1265,7 +1264,7 @@
             const audioUrl = publicUrlData && publicUrlData.publicUrl;
             if (!audioUrl) throw new Error('Sem URL pública para áudio');
 
-            await supabase.from(supabaseConfig.messagesTable).insert({
+            const payload = {
               user_id: currentUser.uid,
               username: profile.username,
               emoji: profile.emoji,
@@ -1275,7 +1274,10 @@
               type: 'audio',
               audio_url: audioUrl,
               created_at: new Date().toISOString()
-            });
+            };
+
+            await supabase.from(supabaseConfig.messagesTable).insert(payload);
+            renderIncomingMessage(buildMessageKey(payload), payload);
 
             lockUsernameChoice();
           } catch {

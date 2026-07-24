@@ -1,5 +1,5 @@
 const defaultSupabaseConfig = {
-  url: 'COLE_SUPABASE_URL',
+  url: 'https://ujlxgjaqklfxgiigzkid.supabase.co',
   anonKey: 'sb_publishable_YT16f9u7iUN6C_-Reo0QoQ_gjlyQZdc',
   messagesTable: 'chat_messages',
   audioBucket: 'chat-audios',

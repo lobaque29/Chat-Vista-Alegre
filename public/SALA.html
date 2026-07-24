@@ -577,6 +577,14 @@
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
+    const EMAILJS_CONFIG_STORAGE_KEY = 'chatvista.emailjsConfig';
+    const EMAILJS_DEFAULT_CONFIG = {
+      publicKey: 'SEU_EMAILJS_PUBLIC_KEY',
+      serviceId: 'service_ec1f9tb',
+      templateId: 'template_apgrk0k'
+    };
+    let emailJsConfig = null;
+    let emailJsInitialized = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
@@ -818,6 +826,58 @@
       usernameInput.title = 'Nome bloqueado apos a primeira mensagem.';
     }
 
+    function readEmailJsConfig() {
+      try {
+        const raw = window.localStorage.getItem(EMAILJS_CONFIG_STORAGE_KEY);
+        if (!raw) {
+          return { ...EMAILJS_DEFAULT_CONFIG };
+        }
+
+        const parsed = JSON.parse(raw);
+        return {
+          publicKey: String(parsed.publicKey || EMAILJS_DEFAULT_CONFIG.publicKey),
+          serviceId: String(parsed.serviceId || EMAILJS_DEFAULT_CONFIG.serviceId),
+          templateId: String(parsed.templateId || EMAILJS_DEFAULT_CONFIG.templateId)
+        };
+      } catch {
+        return { ...EMAILJS_DEFAULT_CONFIG };
+      }
+    }
+
+    function isEmailJsConfigReady(config) {
+      if (!config) return false;
+      const publicKey = String(config.publicKey || '');
+      const serviceId = String(config.serviceId || '');
+      const templateId = String(config.templateId || '');
+      return (
+        publicKey.length > 0 && !publicKey.startsWith('SEU_') &&
+        serviceId.length > 0 && !serviceId.startsWith('SEU_') &&
+        templateId.length > 0 && !templateId.startsWith('SEU_')
+      );
+    }
+
+    function ensureEmailJsReady() {
+      if (typeof window.emailjs === 'undefined') {
+        return false;
+      }
+
+      emailJsConfig = emailJsConfig || readEmailJsConfig();
+      if (!isEmailJsConfigReady(emailJsConfig)) {
+        return false;
+      }
+
+      if (!emailJsInitialized) {
+        try {
+          window.emailjs.init(emailJsConfig.publicKey);
+          emailJsInitialized = true;
+        } catch {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
     function showAdPrompt() {
       const adElem = document.createElement('div');
       adElem.className = 'message';
@@ -886,12 +946,12 @@
             return;
           }
 
-          if (typeof window.emailjs === 'undefined') {
-            alert('Serviço de e-mail indisponível no momento.');
+          if (!ensureEmailJsReady()) {
+            alert('Envio de divulgação não configurado. Configure a Public Key, Service ID e Template ID do EmailJS.');
             return;
           }
 
-          window.emailjs.send('service_ec1f9tb', 'template_apgrk0k', {
+          window.emailjs.send(emailJsConfig.serviceId, emailJsConfig.templateId, {
             nome,
             marca,
             telefone,

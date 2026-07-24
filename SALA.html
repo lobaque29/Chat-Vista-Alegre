@@ -1111,6 +1111,45 @@
       }
     }
 
+    function saveEmailJsConfig(config) {
+      if (!config) return;
+      const snapshot = {
+        publicKey: String(config.publicKey || '').trim(),
+        serviceId: String(config.serviceId || '').trim(),
+        templateId: String(config.templateId || '').trim()
+      };
+
+      window.localStorage.setItem(EMAILJS_CONFIG_STORAGE_KEY, JSON.stringify(snapshot));
+      emailJsConfig = snapshot;
+      emailJsInitialized = false;
+    }
+
+    function requestAndSaveEmailJsConfig() {
+      const current = readEmailJsConfig();
+      const publicKey = window.prompt('Configure o EmailJS. Informe a Public Key:', current.publicKey || '');
+      if (publicKey === null) return false;
+
+      const serviceId = window.prompt('Informe o Service ID do EmailJS:', current.serviceId || '');
+      if (serviceId === null) return false;
+
+      const templateId = window.prompt('Informe o Template ID do EmailJS:', current.templateId || '');
+      if (templateId === null) return false;
+
+      const nextConfig = {
+        publicKey: publicKey.trim(),
+        serviceId: serviceId.trim(),
+        templateId: templateId.trim()
+      };
+
+      if (!isEmailJsConfigReady(nextConfig)) {
+        alert('Configuração incompleta. Preencha Public Key, Service ID e Template ID válidos.');
+        return false;
+      }
+
+      saveEmailJsConfig(nextConfig);
+      return true;
+    }
+
     function isEmailJsConfigReady(config) {
       if (!config) return false;
       const publicKey = String(config.publicKey || '');
@@ -1212,8 +1251,11 @@
           }
 
           if (!ensureEmailJsReady()) {
-            alert('Envio de divulgação não configurado. Configure a Public Key, Service ID e Template ID do EmailJS.');
-            return;
+            const configured = requestAndSaveEmailJsConfig();
+            if (!configured || !ensureEmailJsReady()) {
+              alert('Envio de divulgação não configurado. Configure a Public Key, Service ID e Template ID do EmailJS.');
+              return;
+            }
           }
 
           window.emailjs.send(emailJsConfig.serviceId, emailJsConfig.templateId, {

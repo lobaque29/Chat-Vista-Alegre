@@ -296,6 +296,7 @@
       .input-area {
         grid-template-columns: 34px 40px 1fr 1fr;
         gap: 5px;
+        align-items: stretch;
       }
 
       .input-area input[type="text"] {
@@ -318,9 +319,32 @@
       }
     }
 
+    @media (min-width: 421px) and (max-width: 600px) {
+      .input-area button[type="submit"] {
+        grid-column: 1 / 3;
+      }
+
+      #audioBtn {
+        grid-column: 3 / 5;
+      }
+    }
+
     @media (max-width: 420px) {
       .input-area {
-        grid-template-columns: 30px 36px 1fr 1fr;
+        grid-template-columns: 44px 44px 1fr;
+        gap: 6px;
+      }
+
+      #username,
+      #messageInput,
+      .input-area button[type="submit"],
+      #audioBtn,
+      #recordingStatus {
+        grid-column: 1 / -1;
+      }
+
+      .input-area button {
+        width: 100%;
       }
 
       .avatar-preview {
@@ -546,6 +570,7 @@
         right: 8px;
         width: auto;
         height: min(56dvh, 380px);
+        max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
         bottom: max(8px, env(safe-area-inset-bottom));
       }
 
@@ -555,16 +580,21 @@
       }
 
       .private-input-area {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
         gap: 6px;
         padding: 8px;
+        align-items: center;
       }
 
       .private-input-area input[type="text"] {
+        grid-column: 1 / 2;
         font-size: 0.95rem;
         padding: 8px;
       }
 
       .private-input-area button[type="submit"] {
+        grid-column: 3 / 4;
         height: 34px;
         padding: 6px 10px;
         font-size: 0.9rem;
@@ -580,6 +610,16 @@
     @media (max-width: 420px) {
       .minimized {
         width: 180px !important;
+      }
+
+      .private-input-area {
+        grid-template-columns: 1fr auto;
+      }
+
+      .private-input-area button[type="submit"] {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: center;
       }
 
       .private-header .header-btns {

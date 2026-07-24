@@ -1,7 +1,7 @@
 // Configure aqui o Supabase (https://supabase.com) para o chat em tempo real.
 const defaultSupabaseConfig = {
   url: 'COLE_SUPABASE_URL',
-  anonKey: 'COLE_SUPABASE_ANON_KEY',
+  anonKey: 'sb_publishable_YT16f9u7iUN6C_-Reo0QoQ_gjlyQZdc',
   messagesTable: 'chat_messages',
   audioBucket: 'chat-audios',
   roomName: 'chatvista-sala'

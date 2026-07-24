@@ -381,40 +381,8 @@
     .online-icon {
       font-size: 1.2em;
     }
-    .city-label {
-      font-size: 1.1em;
-    }
-
-    /* Estilos para o box do tempo */
-    #weather-box {
-      position: fixed;
-      right: 36px;
-      bottom: 24px;
-      background: rgba(255,255,255,0.93);
-      border-radius: 12px;
-      box-shadow: 0 2px 8px #0002;
-      padding: 12px 18px;
-      font-family: 'Permanent Marker', cursive, sans-serif;
-      font-size: 1.08em;
-      color: #2563eb;
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      max-width: calc(100vw - 24px);
-      box-sizing: border-box;
-    }
 
     @media (max-width: 700px) {
-      #weather-box {
-        right: 8px;
-        top: 8px;
-        bottom: auto;
-        padding: 8px 10px;
-        font-size: 0.95em;
-        gap: 6px;
-      }
-
       .private-chat {
         left: 8px;
         right: 8px;
@@ -510,12 +478,6 @@
       <span id="recordingStatus" class="recording" hidden>Gravando...</span>
     </form>
   </div>
-  <div id="weather-box">
-  <span id="weather-temp">--°C</span>
-  <span id="weather-desc"></span>
-  <span id="weather-icon"></span>
-  <span class="city-label">BH</span>
-</div>
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
     import { supabaseConfig } from './firebase-config.js';
@@ -1253,36 +1215,6 @@
       }
     }
 
-    async function updateWeather() {
-      try {
-        const apiKey = 'b6907d289e10d714a6e88b30761fae22';
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=Belo%20Horizonte,BR&appid=${apiKey}&units=metric&lang=pt_br`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Falha ao consultar clima');
-
-        const data = await response.json();
-        if (!data.main || !data.weather || !data.weather[0]) throw new Error('Resposta inválida');
-
-        document.getElementById('weather-temp').textContent = `${Math.round(data.main.temp)}°C`;
-        document.getElementById('weather-desc').textContent = data.weather[0].description;
-
-        const iconContainer = document.getElementById('weather-icon');
-        iconContainer.innerHTML = '';
-
-        const icon = document.createElement('img');
-        icon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}.png`;
-        icon.alt = 'ícone do clima';
-        icon.style.verticalAlign = 'middle';
-        icon.style.width = '28px';
-        icon.style.height = '28px';
-        iconContainer.appendChild(icon);
-      } catch {
-        document.getElementById('weather-temp').textContent = '--°C';
-        document.getElementById('weather-desc').textContent = '';
-        document.getElementById('weather-icon').innerHTML = '';
-      }
-    }
-
     async function initRealtime() {
       if (!isSupabaseConfigured()) {
         setInputsDisabled(true);
@@ -1372,11 +1304,6 @@
       initRealtime();
     }
 
-    updateWeather();
-    const weatherTimer = setInterval(updateWeather, 600000);
-    window.addEventListener('beforeunload', function () {
-      clearInterval(weatherTimer);
-    });
   </script>
 </body>
 </html>

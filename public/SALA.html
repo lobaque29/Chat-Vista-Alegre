@@ -601,6 +601,7 @@
     let emailJsConfig = null;
     let emailJsInitialized = false;
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
+    const STRICT_NO_HISTORY_ON_REOPEN = true;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
@@ -1032,6 +1033,7 @@
     }
 
     async function pollLatestMessages() {
+      if (STRICT_NO_HISTORY_ON_REOPEN) return;
       if (!supabase) return;
 
       const { data, error } = await supabase

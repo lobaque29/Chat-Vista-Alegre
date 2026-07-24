@@ -201,6 +201,17 @@
       border: 1px solid #cbd5e1;
       background: #fff;
     }
+    .message-time {
+      display: inline-block;
+      margin-left: 8px;
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .audio-message .message-time {
+      margin-left: auto;
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -557,6 +568,16 @@
       text-align: center;
       font-size: 0.95em;
     }
+    .private-msg-time {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.75rem;
+      color: #64748b;
+      opacity: 0.95;
+    }
+    .private-msg.mine .private-msg-time {
+      color: rgba(255,255,255,0.82);
+    }
     .minimized {
       height: 46px !important;
       width: 220px !important;
@@ -755,6 +776,8 @@
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const STRICT_NO_HISTORY_ON_REOPEN = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+    const HISTORY_RETENTION_MINUTES = 30;
+    const HISTORY_RETENTION_MS = HISTORY_RETENTION_MINUTES * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
@@ -891,6 +914,10 @@
       msgElem.className = 'message';
       msgElem.appendChild(buildUsernameTag(payload));
       msgElem.append(` ${payload.text}`);
+      const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
+      if (timeTag) {
+        msgElem.appendChild(timeTag);
+      }
       messagesDiv.appendChild(msgElem);
     }
 
@@ -918,6 +945,10 @@
       wrapper.appendChild(link);
 
       msgElem.appendChild(wrapper);
+      const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
+      if (timeTag) {
+        msgElem.appendChild(timeTag);
+      }
       messagesDiv.appendChild(msgElem);
     }
 
@@ -984,6 +1015,10 @@
       audio.style.verticalAlign = 'middle';
 
       msgElem.appendChild(audio);
+      const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
+      if (timeTag) {
+        msgElem.appendChild(timeTag);
+      }
       messagesDiv.appendChild(msgElem);
     }
 
@@ -1028,6 +1063,29 @@
 
       if (Number.isNaN(createdTime) || Number.isNaN(sessionTime)) return true;
       return createdTime >= sessionTime;
+    }
+
+    function formatMessageTime(createdAtValue) {
+      if (!createdAtValue) return '';
+      const date = new Date(createdAtValue);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function createMessageTimeTag(createdAtValue, className) {
+      const timeText = formatMessageTime(createdAtValue);
+      if (!timeText) return null;
+      const timeTag = document.createElement('span');
+      timeTag.className = className || 'message-time';
+      timeTag.textContent = timeText;
+      return timeTag;
+    }
+
+    function getHistoryCutoffIso() {
+      return new Date(Date.now() - HISTORY_RETENTION_MS).toISOString();
     }
 
     function getCurrentProfile() {
@@ -1304,9 +1362,11 @@
     }
 
     async function loadInitialMessages() {
+      const cutoffIso = getHistoryCutoffIso();
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
+        .gte('created_at', cutoffIso)
         .order('created_at', { ascending: false })
         .limit(200);
 
@@ -1320,13 +1380,13 @@
     }
 
     async function pollLatestMessages() {
-      if (STRICT_NO_HISTORY_ON_REOPEN) return;
       if (!supabase) return;
+      const cutoffIso = getHistoryCutoffIso();
 
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
-        .gte('created_at', SESSION_STARTED_AT_ISO)
+        .gte('created_at', cutoffIso)
         .order('created_at', { ascending: false })
         .limit(80);
 
@@ -1481,10 +1541,11 @@
       return parts.join(' | ');
     }
 
-    async function cleanupAllMessages(options) {
+    async function cleanupExpiredMessages(options) {
       if (!supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
       const keepalive = Boolean(options && options.keepalive);
-      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?id=gt.0`;
+      const cutoffIso = getHistoryCutoffIso();
+      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?created_at=lt.${encodeURIComponent(cutoffIso)}`;
       try {
         await fetch(endpoint, {
           method: 'DELETE',
@@ -1619,6 +1680,10 @@
       msgElem.appendChild(avatar);
       msgElem.appendChild(name);
       msgElem.appendChild(text);
+      const timeTag = createMessageTimeTag(message.created_at || message.createdAt, 'private-msg-time');
+      if (timeTag) {
+        msgElem.appendChild(timeTag);
+      }
       privateMessagesElem.appendChild(msgElem);
       scrollPrivateMessagesToLatest();
     }
@@ -1637,8 +1702,9 @@
         clearInterval(messageCleanupInterval);
       }
 
+      cleanupExpiredMessages().catch(function () {});
       messageCleanupInterval = setInterval(function () {
-        cleanupAllMessages().catch(function () {});
+        cleanupExpiredMessages().catch(function () {});
       }, MESSAGE_CLEANUP_INTERVAL_MS);
     }
 
@@ -2247,6 +2313,7 @@
         bindPrivateInbox();
         bindBroadcastRealtime();
         await checkDatabaseAccess();
+        startMessageCleanupScheduler();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;

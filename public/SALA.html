@@ -562,6 +562,7 @@
             created_at: new Date().toISOString()
           };
           await messagesChannel.send({ type: 'broadcast', event: 'message', payload });
+          renderIncomingMessage(String(payload.id), payload);
         } else {
           await supabase.from(supabaseConfig.messagesTable).insert({
             user_id: currentUser.uid,

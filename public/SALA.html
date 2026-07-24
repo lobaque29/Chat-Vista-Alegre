@@ -729,6 +729,10 @@
       );
     }
 
+    function normalizeUsernameKey(username) {
+      return String(username || '').trim().toLowerCase();
+    }
+
     function getCurrentProfile() {
       const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
       return {
@@ -1005,6 +1009,12 @@
       return [String(userA), String(userB)].sort().join('::');
     }
 
+    function resolvePrivatePartyId(userId, username) {
+      if (userId) return String(userId);
+      const key = normalizeUsernameKey(username);
+      return key ? `name:${key}` : 'name:anon';
+    }
+
     function appendPrivateMessage(message) {
       if (!privateMessagesElem || !currentUser) return;
       const msgElem = document.createElement('div');
@@ -1041,7 +1051,9 @@
     function renderPrivateConversation() {
       if (!privateMessagesElem || !activePrivateTarget || !currentUser) return;
       privateMessagesElem.innerHTML = '';
-      const key = getConversationKey(currentUser.uid, activePrivateTarget.userId);
+      const selfId = resolvePrivatePartyId(currentUser.uid, usernameInput.value);
+      const targetId = activePrivateTarget.conversationId || resolvePrivatePartyId(activePrivateTarget.userId, activePrivateTarget.username);
+      const key = getConversationKey(selfId, targetId);
       const conversation = privateConversations.get(key) || [];
       if (conversation.length === 0) {
         showPrivateSystemMessage(`Conversa privada com ${activePrivateTarget.username}.`);
@@ -1055,7 +1067,9 @@
       if (renderedPrivateMessageIds.has(messageId)) return;
       renderedPrivateMessageIds.add(messageId);
 
-      const key = getConversationKey(message.from_user_id, message.to_user_id);
+      const fromId = resolvePrivatePartyId(message.from_user_id, message.from_username);
+      const toId = resolvePrivatePartyId(message.to_user_id, message.to_username || message.to_username_key);
+      const key = getConversationKey(fromId, toId);
       if (!privateConversations.has(key)) {
         privateConversations.set(key, []);
       }
@@ -1068,7 +1082,10 @@
       if (
         activePrivateTarget &&
         currentUser &&
-        key === getConversationKey(currentUser.uid, activePrivateTarget.userId)
+        key === getConversationKey(
+          resolvePrivatePartyId(currentUser.uid, usernameInput.value),
+          activePrivateTarget.conversationId || resolvePrivatePartyId(activePrivateTarget.userId, activePrivateTarget.username)
+        )
       ) {
         if (!privateMessagesElem || privateMessagesElem.children.length === 0) {
           renderPrivateConversation();
@@ -1097,6 +1114,7 @@
       if (!text) return;
 
       const profile = getCurrentProfile();
+      const toUsernameKey = normalizeUsernameKey(activePrivateTarget.username);
       const payload = {
         id: `pm-${currentUser.uid}-${Date.now()}`,
         from_user_id: currentUser.uid,
@@ -1105,8 +1123,9 @@
         from_avatar_type: profile.avatarType,
         from_avatar_image: profile.avatarImage,
         from_color: profile.color,
-        to_user_id: activePrivateTarget.userId,
+        to_user_id: activePrivateTarget.userId || '',
         to_username: activePrivateTarget.username,
+        to_username_key: toUsernameKey,
         text,
         created_at: new Date().toISOString()
       };
@@ -1115,7 +1134,7 @@
         let delivered = await sendOnBroadcastChannel('private-message', payload);
 
         // Compatibilidade com clientes antigos que ainda escutam canal privado dedicado.
-        if (!delivered) {
+        if (!delivered && activePrivateTarget.userId) {
           const outChannel = getPrivateOutChannel(activePrivateTarget.userId);
           const result = await outChannel.send({ type: 'broadcast', event: 'private-message', payload });
           delivered = result === 'ok' || typeof result === 'undefined';
@@ -1214,10 +1233,16 @@
       activePrivateTarget = {
         userId: target.userId || '',
         username: target.username || 'Anônimo',
-        color: target.color || '#2563eb'
+        color: target.color || '#2563eb',
+        usernameKey: normalizeUsernameKey(target.username || ''),
+        conversationId: resolvePrivatePartyId(target.userId || '', target.username || '')
       };
       privateTitleElem.textContent = `Privado com ${target.username}`;
-      const canSend = Boolean(activePrivateTarget.userId) && activePrivateTarget.userId !== currentUser.uid;
+
+      const selfKey = normalizeUsernameKey(getCurrentProfile().username);
+      const sameUserById = Boolean(activePrivateTarget.userId) && activePrivateTarget.userId === currentUser.uid;
+      const sameUserByName = Boolean(activePrivateTarget.usernameKey) && activePrivateTarget.usernameKey === selfKey;
+      const canSend = !sameUserById && !sameUserByName && Boolean(activePrivateTarget.usernameKey || activePrivateTarget.userId);
       privateInputElem.disabled = !canSend;
       privateSendBtn.disabled = !canSend;
       renderPrivateConversation();
@@ -1240,7 +1265,13 @@
       privateInboxChannel = supabase
         .channel(`private-inbox:${supabaseConfig.roomName}:${currentUser.uid}`)
         .on('broadcast', { event: 'private-message' }, function ({ payload }) {
-          if (!payload || payload.to_user_id !== currentUser.uid) return;
+          if (!payload) return;
+          const selfNameKey = normalizeUsernameKey(getCurrentProfile().username);
+          const toNameKey = normalizeUsernameKey(payload.to_username_key || payload.to_username);
+          const matchesUser = payload.to_user_id === currentUser.uid;
+          const matchesName = Boolean(selfNameKey) && toNameKey === selfNameKey;
+          const isMine = payload.from_user_id === currentUser.uid;
+          if (!matchesUser && !matchesName && !isMine) return;
           storePrivateMessage(payload);
         })
         .subscribe();

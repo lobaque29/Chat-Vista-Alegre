@@ -441,6 +441,7 @@
     let audioTimeout;
     let canUseRealtime = false;
     let useBroadcastFallback = false;
+    const ENABLE_MESSAGE_HISTORY = false;
     const FORCE_BROADCAST_MODE = false;
     let presenceChannel = null;
     let messagesChannel = null;
@@ -1218,7 +1219,11 @@
         }
 
         try {
-          await loadInitialMessages();
+          if (ENABLE_MESSAGE_HISTORY) {
+            await loadInitialMessages();
+          } else {
+            messagesDiv.innerHTML = '';
+          }
           bindPresence();
           bindMessageRealtime();
         } catch (loadError) {

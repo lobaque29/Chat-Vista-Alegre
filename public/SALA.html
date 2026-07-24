@@ -384,6 +384,7 @@
     let audioChunks = [];
     let audioTimeout;
     let canUseRealtime = false;
+    let useBroadcastFallback = false;
     let presenceChannel = null;
     let messagesChannel = null;
     let supabase = null;
@@ -530,6 +531,18 @@
         .subscribe();
     }
 
+    function bindBroadcastRealtime() {
+      messagesChannel = supabase
+        .channel(`broadcast:${supabaseConfig.roomName}`)
+        .on('broadcast', { event: 'message' }, function (payload) {
+          if (!payload || !payload.payload) return;
+          const incoming = payload.payload;
+          const key = String(incoming.id || incoming.created_at || `${incoming.user_id}-${incoming.text}-${Date.now()}`);
+          renderIncomingMessage(key, incoming);
+        })
+        .subscribe();
+    }
+
     mainChatForm.addEventListener('submit', async function (e) {
       e.preventDefault();
       if (!canUseRealtime || !currentUser) return;
@@ -537,15 +550,29 @@
       const text = messageInput.value.trim();
       if (!text) return;
       try {
-        await supabase.from(supabaseConfig.messagesTable).insert({
-          user_id: currentUser.uid,
-          username,
-          emoji,
-          color,
-          type: 'text',
-          text,
-          created_at: new Date().toISOString()
-        });
+        if (useBroadcastFallback) {
+          const payload = {
+            id: `${currentUser.uid}-${Date.now()}`,
+            user_id: currentUser.uid,
+            username,
+            emoji,
+            color,
+            type: 'text',
+            text,
+            created_at: new Date().toISOString()
+          };
+          await messagesChannel.send({ type: 'broadcast', event: 'message', payload });
+        } else {
+          await supabase.from(supabaseConfig.messagesTable).insert({
+            user_id: currentUser.uid,
+            username,
+            emoji,
+            color,
+            type: 'text',
+            text,
+            created_at: new Date().toISOString()
+          });
+        }
         messageInput.value = '';
         messageInput.focus();
         mainMessageCount++;
@@ -561,6 +588,10 @@
 
     audioBtn.addEventListener('click', async function () {
       if (!canUseRealtime || !currentUser) return;
+      if (useBroadcastFallback) {
+        alert('Áudio indisponível no modo simplificado. Configure tabela e bucket no Supabase para ativar.');
+        return;
+      }
       if (mediaRecorder && mediaRecorder.state === 'recording') { stopRecording(); return; }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -657,9 +688,20 @@
         currentUser = { uid: getOrCreateClientId() };
         canUseRealtime = true;
 
-        await loadInitialMessages();
-        bindPresence();
-        bindMessageRealtime();
+        try {
+          await loadInitialMessages();
+          bindPresence();
+          bindMessageRealtime();
+        } catch {
+          useBroadcastFallback = true;
+          bindPresence();
+          bindBroadcastRealtime();
+          setInputsDisabled(false);
+          const avisoFallback = document.createElement('div');
+          avisoFallback.className = 'message';
+          avisoFallback.textContent = 'Chat em modo simplificado: mensagens em tempo real ativas. Configure tabela/bucket no Supabase para histórico e áudio.';
+          messagesDiv.appendChild(avisoFallback);
+        }
       } catch {
         setInputsDisabled(true);
         const aviso = document.createElement('div');

@@ -1883,6 +1883,7 @@
 
     window.addEventListener('beforeunload', function () {
       stopPrivateTitleFlash();
+      cleanupAllMessages({ keepalive: true });
       if (messageCleanupInterval) {
         clearInterval(messageCleanupInterval);
         messageCleanupInterval = null;

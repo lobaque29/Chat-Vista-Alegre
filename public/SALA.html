@@ -1079,13 +1079,30 @@
         list.shift();
       }
 
+      const activeConversationKey = (
+        activePrivateTarget && currentUser
+      )
+        ? getConversationKey(
+            resolvePrivatePartyId(currentUser.uid, usernameInput.value),
+            activePrivateTarget.conversationId || resolvePrivatePartyId(activePrivateTarget.userId, activePrivateTarget.username)
+          )
+        : '';
+      const isCurrentConversation = Boolean(activeConversationKey) && key === activeConversationKey;
+      const isIncomingFromOtherUser = Boolean(currentUser) && message.from_user_id !== currentUser.uid;
+
+      if (isIncomingFromOtherUser && !isCurrentConversation) {
+        openPrivateChat({
+          userId: message.from_user_id || '',
+          username: message.from_username || 'Anônimo',
+          color: message.from_color || '#2563eb'
+        });
+        return;
+      }
+
       if (
         activePrivateTarget &&
         currentUser &&
-        key === getConversationKey(
-          resolvePrivatePartyId(currentUser.uid, usernameInput.value),
-          activePrivateTarget.conversationId || resolvePrivatePartyId(activePrivateTarget.userId, activePrivateTarget.username)
-        )
+        isCurrentConversation
       ) {
         if (!privateMessagesElem || privateMessagesElem.children.length === 0) {
           renderPrivateConversation();
@@ -1108,7 +1125,12 @@
 
     async function sendPrivateMessage() {
       if (!activePrivateTarget || !privateInputElem || !currentUser) return;
-      if (!activePrivateTarget.userId || activePrivateTarget.userId === currentUser.uid) return;
+
+      const selfNameKey = normalizeUsernameKey(getCurrentProfile().username);
+      const targetNameKey = normalizeUsernameKey(activePrivateTarget.username);
+      if (activePrivateTarget.userId && activePrivateTarget.userId === currentUser.uid) return;
+      if (targetNameKey && targetNameKey === selfNameKey) return;
+      if (!activePrivateTarget.userId && !targetNameKey) return;
 
       const text = privateInputElem.value.trim();
       if (!text) return;

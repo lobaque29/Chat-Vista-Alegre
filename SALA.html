@@ -618,6 +618,7 @@
     };
     let emailJsConfig = null;
     let emailJsInitialized = false;
+    const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
@@ -1061,6 +1062,7 @@
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
+        .gte('created_at', SESSION_STARTED_AT_ISO)
         .order('created_at', { ascending: false })
         .limit(80);
 

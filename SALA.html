@@ -783,6 +783,7 @@
 
     function renderIncomingMessage(messageKey, payload) {
       if (renderedMessageKeys.has(messageKey)) return;
+      if (!isFromCurrentSession(payload && (payload.created_at || payload.createdAt))) return;
       renderedMessageKeys.add(messageKey);
 
       const message = normalizeMessage(payload);
@@ -810,6 +811,17 @@
 
     function normalizeUsernameKey(username) {
       return String(username || '').trim().toLowerCase();
+    }
+
+    function isFromCurrentSession(createdAtValue) {
+      if (!STRICT_NO_HISTORY_ON_REOPEN) return true;
+      if (!createdAtValue) return true;
+
+      const createdTime = new Date(createdAtValue).getTime();
+      const sessionTime = new Date(SESSION_STARTED_AT_ISO).getTime();
+
+      if (Number.isNaN(createdTime) || Number.isNaN(sessionTime)) return true;
+      return createdTime >= sessionTime;
     }
 
     function getCurrentProfile() {

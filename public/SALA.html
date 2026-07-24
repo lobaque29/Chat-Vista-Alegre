@@ -550,6 +550,8 @@
     let dbReady = false;
     let supabase = null;
     const renderedMessageKeys = new Set();
+    const renderedPrivateMessageIds = new Set();
+    const recentUserIdsByUsername = new Map();
     const privateConversations = new Map();
     const privateOutChannels = new Map();
     let privateInboxChannel = null;
@@ -697,6 +699,11 @@
       if (renderedMessageKeys.has(messageKey)) return;
       renderedMessageKeys.add(messageKey);
       const message = normalizeMessage(payload);
+
+      if (message.username && message.userId) {
+        recentUserIdsByUsername.set(String(message.username), String(message.userId));
+      }
+
       if (message.type === 'audio' && message.audioUrl) renderAudioMessage(message);
       else if (message.type === 'text' && message.text) renderTextMessage(message);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -876,6 +883,13 @@
           const key = buildMessageKey(incoming);
           renderIncomingMessage(key, incoming);
         })
+        .on('broadcast', { event: 'private-message' }, function (eventPayload) {
+          if (!eventPayload || !eventPayload.payload || !currentUser) return;
+          const message = eventPayload.payload;
+          if (!message || !message.to_user_id || !message.from_user_id) return;
+          if (message.to_user_id !== currentUser.uid && message.from_user_id !== currentUser.uid) return;
+          storePrivateMessage(message);
+        })
         .subscribe(function (status) {
           if (status === 'SUBSCRIBED') {
             broadcastReady = true;
@@ -884,6 +898,16 @@
             broadcastReady = false;
           }
         });
+    }
+
+    async function sendOnBroadcastChannel(eventName, payload) {
+      if (!broadcastChannel || !broadcastReady) return false;
+      try {
+        const result = await broadcastChannel.send({ type: 'broadcast', event: eventName, payload });
+        return result === 'ok' || typeof result === 'undefined';
+      } catch {
+        return false;
+      }
     }
 
     async function checkDatabaseAccess() {
@@ -947,6 +971,9 @@
         if (matched) return userId;
       }
 
+      const cached = recentUserIdsByUsername.get(String(username));
+      if (cached && cached !== currentUser.uid) return cached;
+
       return '';
     }
 
@@ -1000,6 +1027,10 @@
     }
 
     function storePrivateMessage(message) {
+      const messageId = String(message.id || `${message.from_user_id}|${message.to_user_id}|${message.created_at || message.text || Date.now()}`);
+      if (renderedPrivateMessageIds.has(messageId)) return;
+      renderedPrivateMessageIds.add(messageId);
+
       const key = getConversationKey(message.from_user_id, message.to_user_id);
       if (!privateConversations.has(key)) {
         privateConversations.set(key, []);
@@ -1057,8 +1088,17 @@
       };
 
       try {
-        const outChannel = getPrivateOutChannel(activePrivateTarget.userId);
-        await outChannel.send({ type: 'broadcast', event: 'private-message', payload });
+        let delivered = await sendOnBroadcastChannel('private-message', payload);
+
+        // Compatibilidade com clientes antigos que ainda escutam canal privado dedicado.
+        if (!delivered) {
+          const outChannel = getPrivateOutChannel(activePrivateTarget.userId);
+          const result = await outChannel.send({ type: 'broadcast', event: 'private-message', payload });
+          delivered = result === 'ok' || typeof result === 'undefined';
+        }
+
+        if (!delivered) throw new Error('Falha ao entregar mensagem privada');
+
         storePrivateMessage(payload);
         privateInputElem.value = '';
         privateInputElem.focus();
@@ -1302,10 +1342,6 @@
 
     audioBtn.addEventListener('click', async function () {
       if (!canUseRealtime || !currentUser) return;
-      if (useBroadcastFallback) {
-        alert('Áudio indisponível no modo simplificado. Configure tabela e bucket no Supabase para ativar.');
-        return;
-      }
       if (mediaRecorder && mediaRecorder.state === 'recording') { stopRecording(); return; }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1329,6 +1365,7 @@
             if (!audioUrl) throw new Error('Sem URL pública para áudio');
 
             const payload = {
+              id: `${currentUser.uid}-audio-${Date.now()}`,
               user_id: currentUser.uid,
               username: profile.username,
               emoji: profile.emoji,
@@ -1340,7 +1377,23 @@
               created_at: new Date().toISOString()
             };
 
-            await supabase.from(supabaseConfig.messagesTable).insert(payload);
+            let delivered = await sendOnBroadcastChannel('message', payload);
+            let persisted = false;
+
+            if (!useBroadcastFallback && dbReady) {
+              const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+              if (!insertError) {
+                persisted = true;
+              } else {
+                dbReady = false;
+                useBroadcastFallback = true;
+              }
+            }
+
+            if (!delivered && !persisted) {
+              throw new Error('Audio sem rota de entrega disponivel');
+            }
+
             renderIncomingMessage(buildMessageKey(payload), payload);
 
             lockUsernameChoice();

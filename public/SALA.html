@@ -100,8 +100,7 @@
       font-size: 1.02rem;
     }
     .input-area input[type="file"] {
-      max-width: 180px;
-      font-size: 0.85rem;
+      display: none;
     }
     .avatar-preview {
       width: 32px;
@@ -113,6 +112,22 @@
       background: #e2e8f0;
       border: 1px solid #cbd5e1;
       overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .avatar-preview:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+    .avatar-preview:focus-visible {
+      outline: 2px solid #111;
+      outline-offset: 2px;
+    }
+    .avatar-preview[aria-disabled="true"] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     .input-area button {
       padding: 12px 18px;
@@ -511,7 +526,7 @@
     </div>
     <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat"></div>
     <form class="input-area" id="mainChatForm" autocomplete="off">
-      <span id="avatarPreview" class="avatar-preview" aria-hidden="true"></span>
+      <span id="avatarPreview" class="avatar-preview" role="button" tabindex="0" title="Clique para escolher sua foto"></span>
       <label class="sr-only" for="avatarPhotoInput">Foto do avatar</label>
       <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
       <button id="clearProfileBtn" type="button" title="Limpar perfil">✕</button>
@@ -782,7 +797,18 @@
 
     function updateAvatarInputState() {
       avatarPhotoInput.disabled = messageInput.disabled;
+      if (avatarPreview) {
+        const disabled = Boolean(avatarPhotoInput.disabled);
+        avatarPreview.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        avatarPreview.tabIndex = disabled ? -1 : 0;
+        avatarPreview.title = disabled ? 'Avatar indisponível no momento' : 'Clique para escolher sua foto';
+      }
       refreshAvatarPreview();
+    }
+
+    function triggerAvatarFilePicker() {
+      if (!avatarPhotoInput || avatarPhotoInput.disabled) return;
+      avatarPhotoInput.click();
     }
 
     async function buildAvatarDataUrl(file) {
@@ -1678,6 +1704,17 @@
         avatarPhotoDataUrl = '';
         refreshAvatarPreview();
         saveProfilePreference();
+      }
+    });
+
+    avatarPreview.addEventListener('click', function () {
+      triggerAvatarFilePicker();
+    });
+
+    avatarPreview.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        triggerAvatarFilePicker();
       }
     });
 

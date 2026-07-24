@@ -12,27 +12,31 @@
       background-size: cover;
       margin: 0;
       padding: 0;
+      min-height: 100dvh;
+      box-sizing: border-box;
     }
     .chat-container {
-      max-width: 800px;
-      margin: 40px auto;
+      width: min(860px, calc(100% - 24px));
+      margin: clamp(10px, 3vw, 40px) auto;
       background: rgba(255,255,255,0.95);
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-      padding: 32px;
+      padding: clamp(14px, 2.4vw, 32px);
       display: flex;
       flex-direction: column;
-      height: 80vh;
+      height: min(82dvh, 860px);
+      min-height: 520px;
     }
     .messages {
       flex: 1;
       overflow-y: auto;
       border: 1px solid #ccc;
       border-radius: 8px;
-      padding: 18px;
-      margin-bottom: 18px;
+      padding: clamp(12px, 2vw, 18px);
+      margin-bottom: 12px;
       background: #f3f4f6;
-      font-size: 1.2em;
+      font-size: clamp(0.98rem, 1.8vw, 1.15rem);
+      line-height: 1.45;
     }
     .message {
       margin-bottom: 12px;
@@ -56,25 +60,29 @@
     }
     .input-area {
       display: flex;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
+      align-items: center;
     }
     .input-area input[type="text"] {
       flex: 1;
-      padding: 16px;
+      min-width: 130px;
+      padding: 12px;
       border-radius: 8px;
       border: 1px solid #ccc;
-      font-size: 1.2em;
+      font-size: 1.02rem;
     }
     .input-area button {
-      padding: 16px 32px;
+      padding: 12px 18px;
       border-radius: 8px;
       border: none;
       background: #2563eb;
       color: #fff;
-      font-size: 1.2em;
+      font-size: 1rem;
+      font-weight: 700;
       cursor: pointer;
       transition: background 0.2s;
+      min-height: 46px;
     }
     .input-area button:hover {
       background: #60a5fa;
@@ -85,9 +93,10 @@
       padding: 8px;
       border-radius: 8px;
       border: 1px solid #ccc;
-      font-size: 1.1em;
+      font-size: 1rem;
       margin-right: 4px;
       min-width: 48px;
+      min-height: 44px;
     }
     .recording {
       color: #d32f2f;
@@ -111,27 +120,57 @@
         visibility: hidden;
       }
     }
-    @media (max-width: 600px) {
+    @media (max-width: 900px) {
+      body {
+        background-attachment: scroll;
+      }
+
       .chat-container {
-        padding: 8px;
+        width: calc(100% - 16px);
+        height: calc(100dvh - 16px);
+        min-height: 440px;
+        margin: 8px auto;
       }
+
       .input-area {
-        gap: 6px;
+        display: grid;
+        grid-template-columns: 58px 58px 1fr;
+        gap: 8px;
       }
-      .input-area input[type="text"] {
-        padding: 8px;
-        font-size: 1em;
+
+      #username,
+      #messageInput {
+        grid-column: span 3;
       }
+
       .input-area button {
-        padding: 8px 12px;
-        font-size: 1em;
+        width: 100%;
+      }
+
+      .input-area button[type="submit"],
+      #audioBtn {
+        grid-column: span 3;
+      }
+    }
+
+    @media (max-width: 600px) {
+      #online-users {
+        font-size: 1rem;
+      }
+
+      .messages {
+        margin-bottom: 10px;
+      }
+
+      .input-area input[type="text"] {
+        min-width: 0;
       }
     }
     .private-chat {
       position: fixed;
-      right: 30px;
-      bottom: 60px;
-      width: 370px;
+      right: 12px;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      width: min(370px, calc(100vw - 24px));
       background: rgba(255,255,255,0.98);
       border: 2px solid #2563eb;
       border-radius: 18px;
@@ -139,7 +178,7 @@
       z-index: 1000;
       display: flex;
       flex-direction: column;
-      height: 440px;
+      height: min(440px, 68dvh);
       animation: fadeInUp 0.3s;
       transition: height 0.2s, width 0.2s, bottom 0.2s;
       overflow: hidden;
@@ -204,6 +243,7 @@
       background: #fafdff;
       transition: height 0.2s;
       align-items: center;
+      flex-wrap: wrap;
       border-radius: 0 0 18px 18px;
       box-shadow: 0 -1px 4px rgba(0,0,0,0.03) inset;
     }
@@ -339,6 +379,63 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      max-width: calc(100vw - 24px);
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 700px) {
+      #weather-box {
+        right: 8px;
+        top: 8px;
+        bottom: auto;
+        padding: 8px 10px;
+        font-size: 0.95em;
+        gap: 6px;
+      }
+
+      .private-chat {
+        left: 8px;
+        right: 8px;
+        width: auto;
+        height: min(56dvh, 380px);
+        bottom: max(8px, env(safe-area-inset-bottom));
+      }
+
+      .private-header {
+        padding: 12px 14px;
+        font-size: 1em;
+      }
+
+      .private-input-area {
+        gap: 6px;
+        padding: 8px;
+      }
+
+      .private-input-area input[type="text"] {
+        font-size: 1rem;
+        padding: 10px;
+      }
+
+      .private-input-area button[type="submit"] {
+        height: 38px;
+        padding: 8px 12px;
+        font-size: 1rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .minimized {
+        width: 180px !important;
+      }
+
+      .private-header .header-btns {
+        gap: 4px;
+      }
+
+      .private-header button {
+        width: 28px;
+        height: 28px;
+      }
     }
   </style>
   <script src="https://cdn.emailjs.com/dist/email.min.js"></script>

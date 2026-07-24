@@ -279,6 +279,28 @@
       background: #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     }
+    .private-msg {
+      margin: 8px 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #eaf1ff;
+      color: #0f172a;
+      max-width: 85%;
+      word-break: break-word;
+    }
+    .private-msg.mine {
+      margin-left: auto;
+      background: #2563eb;
+      color: #fff;
+    }
+    .private-msg.system {
+      margin-left: auto;
+      margin-right: auto;
+      background: #eef2ff;
+      color: #334155;
+      text-align: center;
+      font-size: 0.95em;
+    }
     .minimized {
       height: 46px !important;
       width: 220px !important;
@@ -390,6 +412,14 @@
     let messagesChannel = null;
     let supabase = null;
     const renderedMessageKeys = new Set();
+    const privateConversations = new Map();
+    const privateOutChannels = new Map();
+    let privateInboxChannel = null;
+    let activePrivateTarget = null;
+    let privateChatElem = null;
+    let privateTitleElem = null;
+    let privateMessagesElem = null;
+    let privateInputElem = null;
 
     function isSupabaseConfigured() {
       return (
@@ -412,6 +442,7 @@
     function normalizeMessage(payload) {
       return {
         id: payload.id || payload.created_at || payload.createdAt || payload.audio_url || payload.text,
+        userId: payload.user_id || payload.userId || '',
         username: payload.username || 'Anônimo',
         emoji: payload.emoji || '😀',
         color: payload.color || '#2563eb',
@@ -421,18 +452,31 @@
       };
     }
 
-    function buildUsernameTag(username, emoji, color) {
+    function buildUsernameTag(message) {
       const usernameTag = document.createElement('span');
       usernameTag.className = 'username';
-      usernameTag.style.color = color;
-      usernameTag.textContent = `${emoji} ${username}:`;
+      usernameTag.style.color = message.color;
+      usernameTag.textContent = `${message.emoji} ${message.username}:`;
+
+      if (message.userId && currentUser && message.userId !== currentUser.uid) {
+        usernameTag.title = 'Clique para abrir conversa privada';
+        usernameTag.addEventListener('click', function () {
+          openPrivateChat({
+            userId: message.userId,
+            username: message.username,
+            emoji: message.emoji,
+            color: message.color
+          });
+        });
+      }
+
       return usernameTag;
     }
 
     function renderTextMessage(payload) {
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
-      msgElem.appendChild(buildUsernameTag(payload.username, payload.emoji, payload.color));
+      msgElem.appendChild(buildUsernameTag(payload));
       msgElem.append(` ${payload.text}`);
       messagesDiv.appendChild(msgElem);
     }
@@ -440,7 +484,7 @@
     function renderAudioMessage(payload) {
       const msgElem = document.createElement('div');
       msgElem.className = 'audio-message';
-      msgElem.appendChild(buildUsernameTag(payload.username, payload.emoji, payload.color));
+      msgElem.appendChild(buildUsernameTag(payload));
       const audio = document.createElement('audio');
       audio.controls = true;
       audio.src = payload.audioUrl;
@@ -553,6 +597,203 @@
       if (error.hint) parts.push(`hint=${error.hint}`);
       if (parts.length === 0) return String(error);
       return parts.join(' | ');
+    }
+
+    function getConversationKey(userA, userB) {
+      return [String(userA), String(userB)].sort().join('::');
+    }
+
+    function appendPrivateMessage(message) {
+      if (!privateMessagesElem || !currentUser) return;
+      const msgElem = document.createElement('div');
+      const isMine = message.from_user_id === currentUser.uid;
+      msgElem.className = `private-msg ${isMine ? 'mine' : ''}`;
+      msgElem.textContent = `${message.from_emoji || '😀'} ${message.from_username || 'Anônimo'}: ${message.text || ''}`;
+      privateMessagesElem.appendChild(msgElem);
+      privateMessagesElem.scrollTop = privateMessagesElem.scrollHeight;
+    }
+
+    function showPrivateSystemMessage(text) {
+      if (!privateMessagesElem) return;
+      const msgElem = document.createElement('div');
+      msgElem.className = 'private-msg system';
+      msgElem.textContent = text;
+      privateMessagesElem.appendChild(msgElem);
+      privateMessagesElem.scrollTop = privateMessagesElem.scrollHeight;
+    }
+
+    function renderPrivateConversation() {
+      if (!privateMessagesElem || !activePrivateTarget || !currentUser) return;
+      privateMessagesElem.innerHTML = '';
+      const key = getConversationKey(currentUser.uid, activePrivateTarget.userId);
+      const conversation = privateConversations.get(key) || [];
+      if (conversation.length === 0) {
+        showPrivateSystemMessage(`Conversa privada com ${activePrivateTarget.username}.`);
+        return;
+      }
+      conversation.forEach(appendPrivateMessage);
+    }
+
+    function storePrivateMessage(message) {
+      const key = getConversationKey(message.from_user_id, message.to_user_id);
+      if (!privateConversations.has(key)) {
+        privateConversations.set(key, []);
+      }
+      const list = privateConversations.get(key);
+      list.push(message);
+      if (list.length > 120) {
+        list.shift();
+      }
+
+      if (
+        activePrivateTarget &&
+        currentUser &&
+        key === getConversationKey(currentUser.uid, activePrivateTarget.userId)
+      ) {
+        if (!privateMessagesElem || privateMessagesElem.children.length === 0) {
+          renderPrivateConversation();
+        } else {
+          appendPrivateMessage(message);
+        }
+      }
+    }
+
+    function getPrivateOutChannel(targetUserId) {
+      if (privateOutChannels.has(targetUserId)) {
+        return privateOutChannels.get(targetUserId);
+      }
+
+      const channel = supabase.channel(`private-inbox:${supabaseConfig.roomName}:${targetUserId}`);
+      channel.subscribe();
+      privateOutChannels.set(targetUserId, channel);
+      return channel;
+    }
+
+    async function sendPrivateMessage() {
+      if (!activePrivateTarget || !privateInputElem || !currentUser) return;
+
+      const text = privateInputElem.value.trim();
+      if (!text) return;
+
+      const profile = getCurrentProfile();
+      const payload = {
+        id: `pm-${currentUser.uid}-${Date.now()}`,
+        from_user_id: currentUser.uid,
+        from_username: profile.username,
+        from_emoji: profile.emoji,
+        from_color: profile.color,
+        to_user_id: activePrivateTarget.userId,
+        to_username: activePrivateTarget.username,
+        text,
+        created_at: new Date().toISOString()
+      };
+
+      try {
+        const outChannel = getPrivateOutChannel(activePrivateTarget.userId);
+        await outChannel.send({ type: 'broadcast', event: 'private-message', payload });
+        storePrivateMessage(payload);
+        privateInputElem.value = '';
+        privateInputElem.focus();
+      } catch {
+        alert('Não foi possível enviar a mensagem privada.');
+      }
+    }
+
+    function ensurePrivateChatWindow() {
+      if (privateChatElem) return;
+
+      privateChatElem = document.createElement('div');
+      privateChatElem.className = 'private-chat';
+
+      const header = document.createElement('div');
+      header.className = 'private-header';
+
+      privateTitleElem = document.createElement('span');
+      privateTitleElem.textContent = 'Conversa privada';
+
+      const headerButtons = document.createElement('div');
+      headerButtons.className = 'header-btns';
+
+      const minBtn = document.createElement('button');
+      minBtn.type = 'button';
+      minBtn.title = 'Minimizar';
+      minBtn.textContent = '−';
+      minBtn.addEventListener('click', function () {
+        privateChatElem.classList.toggle('minimized');
+      });
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.title = 'Fechar';
+      closeBtn.textContent = '×';
+      closeBtn.addEventListener('click', function () {
+        privateChatElem.remove();
+        privateChatElem = null;
+        privateTitleElem = null;
+        privateMessagesElem = null;
+        privateInputElem = null;
+        activePrivateTarget = null;
+      });
+
+      headerButtons.appendChild(minBtn);
+      headerButtons.appendChild(closeBtn);
+      header.appendChild(privateTitleElem);
+      header.appendChild(headerButtons);
+
+      privateMessagesElem = document.createElement('div');
+      privateMessagesElem.className = 'private-messages';
+
+      const form = document.createElement('form');
+      form.className = 'private-input-area';
+      form.autocomplete = 'off';
+
+      privateInputElem = document.createElement('input');
+      privateInputElem.type = 'text';
+      privateInputElem.placeholder = 'Digite uma mensagem privada...';
+      privateInputElem.maxLength = 250;
+
+      const sendBtn = document.createElement('button');
+      sendBtn.type = 'submit';
+      sendBtn.textContent = 'Enviar';
+
+      form.appendChild(privateInputElem);
+      form.appendChild(sendBtn);
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        await sendPrivateMessage();
+      });
+
+      privateChatElem.appendChild(header);
+      privateChatElem.appendChild(privateMessagesElem);
+      privateChatElem.appendChild(form);
+      document.body.appendChild(privateChatElem);
+    }
+
+    function openPrivateChat(target) {
+      if (!canUseRealtime || !currentUser || !target || !target.userId) return;
+      if (target.userId === currentUser.uid) return;
+
+      ensurePrivateChatWindow();
+      if (!privateChatElem || !privateTitleElem || !privateInputElem) return;
+
+      privateChatElem.classList.remove('minimized');
+      activePrivateTarget = target;
+      privateTitleElem.textContent = `Privado com ${target.emoji || '😀'} ${target.username}`;
+      renderPrivateConversation();
+      privateInputElem.focus();
+    }
+
+    function bindPrivateInbox() {
+      if (!supabase || !currentUser || privateInboxChannel) return;
+
+      privateInboxChannel = supabase
+        .channel(`private-inbox:${supabaseConfig.roomName}:${currentUser.uid}`)
+        .on('broadcast', { event: 'private-message' }, function ({ payload }) {
+          if (!payload || payload.to_user_id !== currentUser.uid) return;
+          storePrivateMessage(payload);
+        })
+        .subscribe();
     }
 
     mainChatForm.addEventListener('submit', async function (e) {
@@ -700,6 +941,7 @@
         supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
         currentUser = { uid: getOrCreateClientId() };
         canUseRealtime = true;
+        bindPrivateInbox();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
@@ -741,6 +983,10 @@
     window.addEventListener('beforeunload', function () {
       if (presenceChannel) presenceChannel.unsubscribe();
       if (messagesChannel) messagesChannel.unsubscribe();
+      if (privateInboxChannel) privateInboxChannel.unsubscribe();
+      privateOutChannels.forEach(function (channel) {
+        channel.unsubscribe();
+      });
     });
 
     if (!isSupabaseConfigured()) {

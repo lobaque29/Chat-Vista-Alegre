@@ -134,8 +134,8 @@
 
       .input-area {
         display: grid;
-        grid-template-columns: 58px 58px 1fr;
-        gap: 8px;
+        grid-template-columns: 50px 50px 1fr;
+        gap: 6px;
       }
 
       #username,
@@ -145,6 +145,16 @@
 
       .input-area button {
         width: 100%;
+        min-height: 40px;
+        padding: 9px 12px;
+        font-size: 0.95rem;
+      }
+
+      .input-area select,
+      .input-area input[type="color"] {
+        min-height: 38px;
+        min-width: 44px;
+        padding: 6px;
       }
 
       .input-area button[type="submit"],
@@ -164,6 +174,21 @@
 
       .input-area input[type="text"] {
         min-width: 0;
+        padding: 10px;
+        font-size: 0.95rem;
+      }
+
+      .input-area button {
+        min-height: 36px;
+        padding: 7px 10px;
+        font-size: 0.9rem;
+      }
+
+      .input-area select,
+      .input-area input[type="color"] {
+        min-height: 34px;
+        min-width: 40px;
+        padding: 5px;
       }
     }
     .private-chat {
@@ -384,14 +409,20 @@
       }
 
       .private-input-area input[type="text"] {
-        font-size: 1rem;
-        padding: 10px;
+        font-size: 0.95rem;
+        padding: 8px;
       }
 
       .private-input-area button[type="submit"] {
-        height: 38px;
-        padding: 8px 12px;
-        font-size: 1rem;
+        height: 34px;
+        padding: 6px 10px;
+        font-size: 0.9rem;
+      }
+
+      .private-header button {
+        width: 30px;
+        height: 30px;
+        font-size: 1.1em;
       }
     }
 

@@ -274,6 +274,15 @@
       letter-spacing: 0.5px;
       font-size: 1.13em;
     }
+    .private-header.private-unread {
+      background: linear-gradient(90deg, #b45309 50%, #f59e0b 100%);
+      animation: privateHeaderPulse 1s ease-in-out infinite;
+    }
+    @keyframes privateHeaderPulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.42); }
+      70% { box-shadow: 0 0 0 9px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
     .private-header .header-btns { display: flex; gap: 8px; }
     .private-header button {
       background: rgba(255,255,255,0.18);
@@ -564,6 +573,9 @@
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
     let messagePollingInterval = null;
+    let privateTitleFlashTimer = null;
+    let privateTitleFlashRemaining = 0;
+    const pageDefaultTitle = document.title;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
@@ -1015,6 +1027,74 @@
       return key ? `name:${key}` : 'name:anon';
     }
 
+    function stopPrivateTitleFlash() {
+      if (privateTitleFlashTimer) {
+        clearInterval(privateTitleFlashTimer);
+        privateTitleFlashTimer = null;
+      }
+      document.title = pageDefaultTitle;
+    }
+
+    function flashPrivateTitle(senderName) {
+      const safeName = senderName || 'alguém';
+      stopPrivateTitleFlash();
+      privateTitleFlashRemaining = 8;
+
+      privateTitleFlashTimer = setInterval(function () {
+        if (privateTitleFlashRemaining <= 0) {
+          stopPrivateTitleFlash();
+          return;
+        }
+
+        document.title = (privateTitleFlashRemaining % 2 === 0)
+          ? `Nova mensagem privada de ${safeName}`
+          : pageDefaultTitle;
+
+        privateTitleFlashRemaining -= 1;
+      }, 700);
+    }
+
+    function playPrivateNotificationTone() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 920;
+
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.26);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.28);
+      } catch {}
+    }
+
+    function setPrivateUnreadState(isUnread) {
+      if (!privateChatElem) return;
+      const header = privateChatElem.querySelector('.private-header');
+      if (!header) return;
+      header.classList.toggle('private-unread', Boolean(isUnread));
+    }
+
+    function notifyIncomingPrivateMessage(message, isCurrentConversation) {
+      if (!currentUser || !message) return;
+      if (message.from_user_id === currentUser.uid) return;
+
+      if (!isCurrentConversation) {
+        setPrivateUnreadState(true);
+      }
+
+      flashPrivateTitle(message.from_username || 'alguém');
+      playPrivateNotificationTone();
+    }
+
     function appendPrivateMessage(message) {
       if (!privateMessagesElem || !currentUser) return;
       const msgElem = document.createElement('div');
@@ -1091,12 +1171,17 @@
       const isIncomingFromOtherUser = Boolean(currentUser) && message.from_user_id !== currentUser.uid;
 
       if (isIncomingFromOtherUser && !isCurrentConversation) {
+        notifyIncomingPrivateMessage(message, false);
         openPrivateChat({
           userId: message.from_user_id || '',
           username: message.from_username || 'Anônimo',
           color: message.from_color || '#2563eb'
         });
         return;
+      }
+
+      if (isIncomingFromOtherUser && isCurrentConversation) {
+        notifyIncomingPrivateMessage(message, true);
       }
 
       if (
@@ -1260,6 +1345,8 @@
         conversationId: resolvePrivatePartyId(target.userId || '', target.username || '')
       };
       privateTitleElem.textContent = `Privado com ${target.username}`;
+      stopPrivateTitleFlash();
+      setPrivateUnreadState(false);
 
       const selfKey = normalizeUsernameKey(getCurrentProfile().username);
       const sameUserById = Boolean(activePrivateTarget.userId) && activePrivateTarget.userId === currentUser.uid;
@@ -1568,6 +1655,7 @@
     }
 
     window.addEventListener('beforeunload', function () {
+      stopPrivateTitleFlash();
       if (messagePollingInterval) {
         clearInterval(messagePollingInterval);
         messagePollingInterval = null;

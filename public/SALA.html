@@ -420,6 +420,7 @@
     let privateTitleElem = null;
     let privateMessagesElem = null;
     let privateInputElem = null;
+    let privateSendBtn = null;
 
     function isSupabaseConfigured() {
       return (
@@ -458,17 +459,11 @@
       usernameTag.style.color = message.color;
       usernameTag.textContent = `${message.emoji} ${message.username}:`;
 
-      if (message.userId && currentUser && message.userId !== currentUser.uid) {
-        usernameTag.title = 'Clique para abrir conversa privada';
-        usernameTag.addEventListener('click', function () {
-          openPrivateChat({
-            userId: message.userId,
-            username: message.username,
-            emoji: message.emoji,
-            color: message.color
-          });
-        });
-      }
+      usernameTag.dataset.userId = message.userId || '';
+      usernameTag.dataset.username = message.username || 'Anônimo';
+      usernameTag.dataset.emoji = message.emoji || '😀';
+      usernameTag.dataset.color = message.color || '#2563eb';
+      usernameTag.title = 'Clique para abrir conversa privada';
 
       return usernameTag;
     }
@@ -599,6 +594,25 @@
       return parts.join(' | ');
     }
 
+    function resolveUserIdByUsername(username) {
+      if (!presenceChannel || !username || !currentUser) return '';
+      const state = presenceChannel.presenceState();
+      const entries = Object.entries(state || {});
+
+      for (const [userId, metas] of entries) {
+        if (userId === currentUser.uid) continue;
+        const list = Array.isArray(metas)
+          ? metas
+          : (metas && Array.isArray(metas.metas) ? metas.metas : []);
+        const matched = list.some(function (meta) {
+          return (meta && (meta.username || 'Anônimo')) === username;
+        });
+        if (matched) return userId;
+      }
+
+      return '';
+    }
+
     function getConversationKey(userA, userB) {
       return [String(userA), String(userB)].sort().join('::');
     }
@@ -671,6 +685,7 @@
 
     async function sendPrivateMessage() {
       if (!activePrivateTarget || !privateInputElem || !currentUser) return;
+      if (!activePrivateTarget.userId || activePrivateTarget.userId === currentUser.uid) return;
 
       const text = privateInputElem.value.trim();
       if (!text) return;
@@ -732,6 +747,7 @@
         privateTitleElem = null;
         privateMessagesElem = null;
         privateInputElem = null;
+        privateSendBtn = null;
         activePrivateTarget = null;
       });
 
@@ -755,6 +771,7 @@
       const sendBtn = document.createElement('button');
       sendBtn.type = 'submit';
       sendBtn.textContent = 'Enviar';
+      privateSendBtn = sendBtn;
 
       form.appendChild(privateInputElem);
       form.appendChild(sendBtn);
@@ -771,16 +788,33 @@
     }
 
     function openPrivateChat(target) {
-      if (!canUseRealtime || !currentUser || !target || !target.userId) return;
-      if (target.userId === currentUser.uid) return;
+      if (!canUseRealtime || !currentUser || !target) return;
 
       ensurePrivateChatWindow();
-      if (!privateChatElem || !privateTitleElem || !privateInputElem) return;
+      if (!privateChatElem || !privateTitleElem || !privateInputElem || !privateSendBtn) return;
 
       privateChatElem.classList.remove('minimized');
-      activePrivateTarget = target;
+      activePrivateTarget = {
+        userId: target.userId || '',
+        username: target.username || 'Anônimo',
+        emoji: target.emoji || '😀',
+        color: target.color || '#2563eb'
+      };
       privateTitleElem.textContent = `Privado com ${target.emoji || '😀'} ${target.username}`;
+      const canSend = Boolean(activePrivateTarget.userId) && activePrivateTarget.userId !== currentUser.uid;
+      privateInputElem.disabled = !canSend;
+      privateSendBtn.disabled = !canSend;
       renderPrivateConversation();
+
+      if (!canSend) {
+        privateMessagesElem.innerHTML = '';
+        if (activePrivateTarget.userId === currentUser.uid) {
+          showPrivateSystemMessage('Este nickname e o seu. Clique em outro usuario para conversar em privado.');
+        } else {
+          showPrivateSystemMessage('Nao foi possivel identificar este usuario para conversa privada ainda.');
+        }
+      }
+
       privateInputElem.focus();
     }
 
@@ -795,6 +829,29 @@
         })
         .subscribe();
     }
+
+    messagesDiv.addEventListener('click', function (e) {
+      const targetElem = e.target.closest('.username');
+      if (!targetElem || !messagesDiv.contains(targetElem)) return;
+      if (!canUseRealtime || !currentUser) return;
+
+      let targetUserId = targetElem.dataset.userId || '';
+      const targetUsername = targetElem.dataset.username || 'Anônimo';
+      const targetEmoji = targetElem.dataset.emoji || '😀';
+      const targetColor = targetElem.dataset.color || '#2563eb';
+
+      if (!targetUserId || targetUserId === currentUser.uid) {
+        const resolved = resolveUserIdByUsername(targetUsername);
+        if (resolved) targetUserId = resolved;
+      }
+
+      openPrivateChat({
+        userId: targetUserId,
+        username: targetUsername,
+        emoji: targetEmoji,
+        color: targetColor
+      });
+    });
 
     mainChatForm.addEventListener('submit', async function (e) {
       e.preventDefault();

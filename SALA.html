@@ -743,10 +743,10 @@
       return parts.join(' | ');
     }
 
-    async function cleanupMessagesByUserId(userId, options) {
-      if (!userId || !supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
+    async function cleanupAllMessages(options) {
+      if (!supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
       const keepalive = Boolean(options && options.keepalive);
-      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?user_id=eq.${encodeURIComponent(userId)}`;
+      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?id=gt.0`;
       try {
         await fetch(endpoint, {
           method: 'DELETE',
@@ -1203,7 +1203,7 @@
         canUseRealtime = true;
         bindPrivateInbox();
 
-        await cleanupMessagesByUserId(currentUser.uid);
+        await cleanupAllMessages();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
@@ -1243,9 +1243,7 @@
     }
 
     window.addEventListener('beforeunload', function () {
-      if (currentUser && currentUser.uid) {
-        cleanupMessagesByUserId(currentUser.uid, { keepalive: true });
-      }
+      cleanupAllMessages({ keepalive: true });
       if (presenceChannel) {
         presenceChannel.unsubscribe();
       }

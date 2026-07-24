@@ -546,7 +546,6 @@
       <span id="avatarPreview" class="avatar-preview" role="button" tabindex="0" title="Clique para escolher sua foto"></span>
       <label class="sr-only" for="avatarPhotoInput">Foto do avatar</label>
       <input type="file" id="avatarPhotoInput" accept="image/*" title="Escolha sua foto de avatar">
-      <button id="clearProfileBtn" type="button" title="Limpar perfil">✕</button>
       <label class="sr-only" for="colorPicker">Cor do nome</label>
       <input type="color" id="colorPicker" value="#2563eb" title="Escolha a cor do nome">
       <label class="sr-only" for="username">Nome de usuário</label>
@@ -1047,7 +1046,7 @@
       avatarPhotoInput.disabled = disabled;
       updateAvatarInputState();
       colorPicker.disabled = disabled;
-      clearProfileBtn.disabled = disabled;
+      if (clearProfileBtn) clearProfileBtn.disabled = disabled;
       audioBtn.disabled = disabled;
       const submitBtn = mainChatForm.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = disabled;
@@ -1781,17 +1780,19 @@
       }
     });
 
-    clearProfileBtn.addEventListener('click', function () {
-      usernameInput.value = '';
-      colorPicker.value = '#2563eb';
-      avatarPhotoInput.value = '';
-      avatarPhotoDataUrl = '';
-      saveProfilePreference();
-      refreshAvatarPreview();
-      if (usernameLocked) {
-        usernameInput.disabled = true;
-      }
-    });
+    if (clearProfileBtn) {
+      clearProfileBtn.addEventListener('click', function () {
+        usernameInput.value = '';
+        colorPicker.value = '#2563eb';
+        avatarPhotoInput.value = '';
+        avatarPhotoDataUrl = '';
+        saveProfilePreference();
+        refreshAvatarPreview();
+        if (usernameLocked) {
+          usernameInput.disabled = true;
+        }
+      });
+    }
 
     audioBtn.addEventListener('click', async function () {
       if (!canUseRealtime || !currentUser) return;

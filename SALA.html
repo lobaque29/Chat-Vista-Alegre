@@ -715,7 +715,7 @@
     let audioTimeout;
     let canUseRealtime = false;
     let useBroadcastFallback = false;
-    const ENABLE_MESSAGE_HISTORY = false;
+    const ENABLE_MESSAGE_HISTORY = true;
     const FORCE_BROADCAST_MODE = false;
     let presenceChannel = null;
     let messagesChannel = null;
@@ -753,7 +753,7 @@
     let emailJsConfig = null;
     let emailJsInitialized = false;
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
-    const STRICT_NO_HISTORY_ON_REOPEN = true;
+    const STRICT_NO_HISTORY_ON_REOPEN = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
@@ -2247,7 +2247,6 @@
         bindPrivateInbox();
         bindBroadcastRealtime();
         await checkDatabaseAccess();
-        startMessageCleanupScheduler();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
@@ -2302,7 +2301,6 @@
 
     window.addEventListener('beforeunload', function () {
       stopPrivateTitleFlash();
-      cleanupAllMessages({ keepalive: true });
       if (messageCleanupInterval) {
         clearInterval(messageCleanupInterval);
         messageCleanupInterval = null;

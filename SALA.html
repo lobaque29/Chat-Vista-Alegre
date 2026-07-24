@@ -547,6 +547,7 @@
     let privateMessagesElem = null;
     let privateInputElem = null;
     let privateSendBtn = null;
+    let usernameLocked = false;
 
     function isSupabaseConfigured() {
       return (
@@ -639,6 +640,13 @@
       };
     }
 
+    function lockUsernameChoice() {
+      if (usernameLocked) return;
+      usernameLocked = true;
+      usernameInput.disabled = true;
+      usernameInput.title = 'Nome bloqueado apos a primeira mensagem.';
+    }
+
     function showAdPrompt() {
       const adElem = document.createElement('div');
       adElem.className = 'message';
@@ -729,7 +737,7 @@
     }
 
     function setInputsDisabled(disabled) {
-      usernameInput.disabled = disabled;
+      usernameInput.disabled = disabled || usernameLocked;
       messageInput.disabled = disabled;
       emojiSelect.disabled = disabled;
       colorPicker.disabled = disabled;
@@ -1146,6 +1154,7 @@
           });
         }
 
+        lockUsernameChoice();
         messageInput.value = '';
         messageInput.focus();
 
@@ -1218,6 +1227,8 @@
               audio_url: audioUrl,
               created_at: new Date().toISOString()
             });
+
+            lockUsernameChoice();
           } catch {
             alert('Não foi possível enviar o áudio.');
           }

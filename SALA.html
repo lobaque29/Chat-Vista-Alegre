@@ -589,6 +589,7 @@
     let privateSendBtn = null;
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
+    const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
 
     function isSupabaseConfigured() {
       return (
@@ -607,6 +608,52 @@
       const generated = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : fallback;
       window.localStorage.setItem('chatvista.clientId', generated);
       return generated;
+    }
+
+    function saveProfilePreference() {
+      try {
+        const snapshot = {
+          username: usernameInput.value || '',
+          emoji: emojiSelect.value || '😀',
+          color: colorPicker.value || '#2563eb',
+          avatarMode: avatarModeSelect.value === 'photo' ? 'photo' : 'emoji',
+          avatarImage: avatarPhotoDataUrl || ''
+        };
+        window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(snapshot));
+      } catch {}
+    }
+
+    function loadProfilePreference() {
+      try {
+        const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+
+        if (saved && typeof saved.username === 'string' && saved.username.trim()) {
+          usernameInput.value = saved.username;
+        }
+
+        if (saved && typeof saved.emoji === 'string') {
+          const optionExists = Array.from(emojiSelect.options).some(function (opt) {
+            return opt.value === saved.emoji;
+          });
+          if (optionExists) emojiSelect.value = saved.emoji;
+        }
+
+        if (saved && typeof saved.color === 'string') {
+          colorPicker.value = saved.color;
+        }
+
+        if (saved && saved.avatarMode === 'photo') {
+          avatarModeSelect.value = 'photo';
+        } else {
+          avatarModeSelect.value = 'emoji';
+        }
+
+        if (saved && typeof saved.avatarImage === 'string' && saved.avatarImage.startsWith('data:image/')) {
+          avatarPhotoDataUrl = saved.avatarImage;
+        }
+      } catch {}
     }
 
     function normalizeMessage(payload) {
@@ -1314,19 +1361,26 @@
       }
     });
 
+    usernameInput.addEventListener('change', saveProfilePreference);
+    emojiSelect.addEventListener('change', saveProfilePreference);
+    colorPicker.addEventListener('change', saveProfilePreference);
+
     usernameInput.addEventListener('input', function () {
+      saveProfilePreference();
       if (!presenceChannel || !currentUser) return;
       trackPresence().catch(function () {});
     });
 
     avatarModeSelect.addEventListener('change', function () {
       updateAvatarInputState();
+      saveProfilePreference();
     });
 
     avatarPhotoInput.addEventListener('change', async function () {
       const file = avatarPhotoInput.files && avatarPhotoInput.files[0];
       if (!file) {
         avatarPhotoDataUrl = '';
+        saveProfilePreference();
         return;
       }
 
@@ -1334,15 +1388,18 @@
         alert('Escolha um arquivo de imagem válido para o avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        saveProfilePreference();
         return;
       }
 
       try {
         avatarPhotoDataUrl = await buildAvatarDataUrl(file);
+        saveProfilePreference();
       } catch {
         alert('Não foi possível processar a foto do avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        saveProfilePreference();
       }
     });
 
@@ -1502,6 +1559,8 @@
         channel.unsubscribe();
       });
     });
+
+    loadProfilePreference();
 
     if (!isSupabaseConfigured()) {
       setInputsDisabled(true);

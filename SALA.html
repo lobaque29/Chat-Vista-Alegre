@@ -419,6 +419,7 @@
     let audioTimeout;
     let canUseRealtime = false;
     let useBroadcastFallback = false;
+    const FORCE_BROADCAST_MODE = true;
     let presenceChannel = null;
     let messagesChannel = null;
     let supabase = null;
@@ -873,6 +874,18 @@
         supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
         currentUser = { uid: getOrCreateClientId() };
         canUseRealtime = true;
+
+        if (FORCE_BROADCAST_MODE) {
+          useBroadcastFallback = true;
+          bindPresence();
+          bindBroadcastRealtime();
+          setInputsDisabled(false);
+          const avisoFallback = document.createElement('div');
+          avisoFallback.className = 'message';
+          avisoFallback.textContent = 'Chat em modo simplificado: mensagens em tempo real ativas. Configure tabela/bucket no Supabase para histórico e áudio.';
+          messagesDiv.appendChild(avisoFallback);
+          return;
+        }
 
         try {
           await loadInitialMessages();

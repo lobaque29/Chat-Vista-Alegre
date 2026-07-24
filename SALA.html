@@ -161,6 +161,26 @@
       margin-left: 8px;
       animation: blink 1s steps(2, start) infinite;
     }
+    .file-message {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .file-message a {
+      color: #2563eb;
+      text-decoration: underline;
+      word-break: break-all;
+      font-weight: 600;
+    }
+    .file-message img {
+      max-width: 160px;
+      max-height: 160px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -552,6 +572,9 @@
       <input type="text" id="username" placeholder="Seu nome" maxlength="16">
       <label class="sr-only" for="messageInput">Mensagem</label>
       <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+      <label class="sr-only" for="mainFileInput">Arquivo</label>
+      <input type="file" id="mainFileInput" title="Escolha um arquivo para enviar">
+      <button id="fileBtn" type="button">📎 Arquivo</button>
       <button type="submit">Enviar</button>
       <button id="audioBtn" type="button">🎤 Áudio</button>
       <span id="recordingStatus" class="recording" hidden>Gravando...</span>
@@ -569,6 +592,8 @@
     const avatarPhotoInput = document.getElementById('avatarPhotoInput');
     const clearProfileBtn = document.getElementById('clearProfileBtn');
     const colorPicker = document.getElementById('colorPicker');
+    const mainFileInput = document.getElementById('mainFileInput');
+    const fileBtn = document.getElementById('fileBtn');
     const audioBtn = document.getElementById('audioBtn');
     const recordingStatus = document.getElementById('recordingStatus');
     const onlineCountElem = document.getElementById('onlineCount');
@@ -609,6 +634,7 @@
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
+    const FILE_MESSAGE_PREFIX = '__CHATVISTA_FILE__:';
     const EMAILJS_CONFIG_STORAGE_KEY = 'chatvista.emailjsConfig';
     const EMAILJS_DEFAULT_CONFIG = {
       publicKey: 'SEU_EMAILJS_PUBLIC_KEY',
@@ -746,11 +772,83 @@
     }
 
     function renderTextMessage(payload) {
+      const parsedFile = parseFileMessage(payload.text);
+      if (parsedFile) {
+        renderFileMessage(payload, parsedFile);
+        return;
+      }
+
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
       msgElem.appendChild(buildUsernameTag(payload));
       msgElem.append(` ${payload.text}`);
       messagesDiv.appendChild(msgElem);
+    }
+
+    function renderFileMessage(payload, fileMeta) {
+      const msgElem = document.createElement('div');
+      msgElem.className = 'message';
+      msgElem.appendChild(buildUsernameTag(payload));
+
+      const wrapper = document.createElement('span');
+      wrapper.className = 'file-message';
+
+      if (fileMeta.mime && fileMeta.mime.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = fileMeta.url;
+        img.alt = fileMeta.name || 'Imagem enviada';
+        wrapper.appendChild(img);
+      }
+
+      const link = document.createElement('a');
+      link.href = fileMeta.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      const sizeText = typeof fileMeta.size === 'number' ? ` (${formatFileSize(fileMeta.size)})` : '';
+      link.textContent = `📎 ${fileMeta.name || 'Arquivo'}${sizeText}`;
+      wrapper.appendChild(link);
+
+      msgElem.appendChild(wrapper);
+      messagesDiv.appendChild(msgElem);
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes || bytes <= 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let value = bytes;
+      let unitIndex = 0;
+      while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+      }
+      return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+    }
+
+    function parseFileMessage(text) {
+      if (typeof text !== 'string' || !text.startsWith(FILE_MESSAGE_PREFIX)) return null;
+      const encoded = text.slice(FILE_MESSAGE_PREFIX.length);
+      try {
+        const parsed = JSON.parse(encoded);
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (typeof parsed.url !== 'string' || parsed.url.trim() === '') return null;
+        return {
+          name: typeof parsed.name === 'string' ? parsed.name : 'Arquivo',
+          url: parsed.url,
+          mime: typeof parsed.mime === 'string' ? parsed.mime : '',
+          size: typeof parsed.size === 'number' ? parsed.size : 0
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function createFileMessageText(fileMeta) {
+      return `${FILE_MESSAGE_PREFIX}${JSON.stringify(fileMeta)}`;
+    }
+
+    function buildSafeFileName(name) {
+      const raw = String(name || 'arquivo');
+      return raw.replace(/[^a-zA-Z0-9._-]/g, '_');
     }
 
     function scrollMessagesToLatest() {
@@ -1046,6 +1144,8 @@
       avatarPhotoInput.disabled = disabled;
       updateAvatarInputState();
       colorPicker.disabled = disabled;
+      if (mainFileInput) mainFileInput.disabled = disabled;
+      if (fileBtn) fileBtn.disabled = disabled;
       if (clearProfileBtn) clearProfileBtn.disabled = disabled;
       audioBtn.disabled = disabled;
       const submitBtn = mainChatForm.querySelector('button[type="submit"]');
@@ -1649,6 +1749,80 @@
         .subscribe();
     }
 
+    async function sendFileMessage(file) {
+      if (!file || !supabase || !currentUser || !canUseRealtime) return;
+
+      try {
+        const profile = getCurrentProfile();
+        const safeName = buildSafeFileName(file.name || 'arquivo');
+        const filePath = `${currentUser.uid}/files/${Date.now()}-${safeName}`;
+        const bucket = supabase.storage.from(supabaseConfig.audioBucket);
+
+        const { error: uploadError } = await bucket.upload(filePath, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false
+        });
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = bucket.getPublicUrl(filePath);
+        const fileUrl = publicUrlData && publicUrlData.publicUrl;
+        if (!fileUrl) throw new Error('Sem URL pública para arquivo');
+
+        const fileMeta = {
+          name: file.name || safeName,
+          url: fileUrl,
+          mime: file.type || '',
+          size: typeof file.size === 'number' ? file.size : 0
+        };
+
+        const payload = {
+          user_id: currentUser.uid,
+          username: profile.username,
+          emoji: profile.emoji,
+          avatar_type: profile.avatarType,
+          avatar_image: profile.avatarImage,
+          color: profile.color,
+          type: 'text',
+          text: createFileMessageText(fileMeta),
+          created_at: new Date().toISOString(),
+          id: `${currentUser.uid}-file-${Date.now()}`
+        };
+
+        let delivered = false;
+        if (broadcastChannel && broadcastReady) {
+          await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
+          delivered = true;
+        }
+
+        if (!useBroadcastFallback && dbReady) {
+          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          if (insertError) {
+            dbReady = false;
+            useBroadcastFallback = true;
+          } else {
+            delivered = true;
+          }
+        }
+
+        if (!delivered) {
+          throw new Error('Sem rota de envio para arquivo');
+        }
+
+        renderIncomingMessage(buildMessageKey(payload), payload);
+        lockUsernameChoice();
+        mainMessageCount++;
+        if (mainMessageCount % 10 === 0) {
+          showAdPrompt();
+        }
+      } catch {
+        alert('Não foi possível enviar o arquivo.');
+      } finally {
+        if (mainFileInput) {
+          mainFileInput.value = '';
+        }
+      }
+    }
+
     messagesDiv.addEventListener('click', function (e) {
       const targetElem = e.target.closest('.username');
       if (!targetElem || !messagesDiv.contains(targetElem)) return;
@@ -1778,6 +1952,17 @@
         e.preventDefault();
         triggerAvatarFilePicker();
       }
+    });
+
+    fileBtn.addEventListener('click', function () {
+      if (!mainFileInput || mainFileInput.disabled) return;
+      mainFileInput.click();
+    });
+
+    mainFileInput.addEventListener('change', async function () {
+      const file = mainFileInput.files && mainFileInput.files[0];
+      if (!file) return;
+      await sendFileMessage(file);
     });
 
     if (clearProfileBtn) {

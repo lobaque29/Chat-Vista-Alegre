@@ -595,13 +595,24 @@
     }
 
     function getOrCreateClientId() {
-      const saved = window.localStorage.getItem('chatvista.clientId');
-      if (saved) return saved;
+      const sessionKey = 'chatvista.clientId.session';
+      const baseKey = 'chatvista.clientId.base';
 
-      const fallback = `user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const generated = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : fallback;
-      window.localStorage.setItem('chatvista.clientId', generated);
-      return generated;
+      const savedSession = window.sessionStorage.getItem(sessionKey);
+      if (savedSession) return savedSession;
+
+      const savedLegacy = window.localStorage.getItem('chatvista.clientId');
+      const savedBase = window.localStorage.getItem(baseKey);
+      const base = savedBase || savedLegacy || `user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      window.localStorage.setItem(baseKey, base);
+
+      const sessionSuffix = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(16).slice(2);
+
+      const sessionClientId = `${base}:${sessionSuffix}`;
+      window.sessionStorage.setItem(sessionKey, sessionClientId);
+      return sessionClientId;
     }
 
     function saveProfilePreference() {
@@ -1030,7 +1041,19 @@
     }
 
     async function sendOnBroadcastChannel(eventName, payload) {
-      if (!broadcastChannel || !broadcastReady) return false;
+      if (!broadcastChannel) return false;
+
+      if (!broadcastReady) {
+        const waitUntil = Date.now() + 2200;
+        while (!broadcastReady && Date.now() < waitUntil) {
+          await new Promise(function (resolve) {
+            setTimeout(resolve, 110);
+          });
+        }
+      }
+
+      if (!broadcastReady) return false;
+
       try {
         const result = await broadcastChannel.send({ type: 'broadcast', event: eventName, payload });
         return result === 'ok' || typeof result === 'undefined';

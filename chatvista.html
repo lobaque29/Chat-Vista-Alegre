@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>     
+<html lang="pt-BR">     
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +29,7 @@
             }
 
             .container {
-                width: 300px;  
+                width: min(320px, calc(100% - 32px));
                 margin: 40px auto 0 auto;
                 padding: 20px;
                 background-color: rgba(255,255,255,0.93);
@@ -39,16 +39,6 @@
                 position: relative;
                 z-index: 2;
             }   
-
-            input[type="text"],
-            input[type="password"] {
-                width: 90%;
-                padding: 10px;
-                margin-bottom: 16px;
-                border: 1px solid #ccc;
-                border-radius: 6px;
-                font-size: 1em;
-            }
 
             button[type="submit"] {
                 width: 100%;
@@ -67,6 +57,11 @@
                 color: #222;
             }
 
+            button[type="submit"]:focus-visible {
+                outline: 2px solid #111;
+                outline-offset: 2px;
+            }
+
             .logo-img {
                 display: block;
                 margin: 40px auto 20px auto;
@@ -75,16 +70,22 @@
                 z-index: 2;
                 position: relative;
             }
+
+            .logo-wrap {
+                text-align: center;
+            }
         </style>
     </head>
     <body>
-        <div style="text-align: center;">
-            <img src="vistaalegre.jpg.jpg" alt="vista alegre" width="340" height="300" class="logo-img">
+        <div class="logo-wrap">
+            <img src="vistaalegre.jpg.jpg" alt="Logo do Chat Vista Alegre" width="340" height="300" class="logo-img">
         </div>
 
         <div class="container">
+            <h1>Chat Vista Alegre</h1>
+            <p>Entre na sala e converse com a comunidade.</p>
             <form id="loginForm">
-                <button type="submit">Entrar</button>
+                <button type="submit" aria-label="Entrar na sala de bate-papo">Entrar</button>
             </form>
         </div>
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -95,6 +95,17 @@
       margin-left: 8px;
       animation: blink 1s steps(2, start) infinite;
     }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
     @keyframes blink {
       to {
         visibility: hidden;
@@ -138,6 +149,7 @@
       background-size: cover;
       background-position: center;
       border-top: 6px solid #2563eb;
+      -webkit-backdrop-filter: blur(2px);
       backdrop-filter: blur(2px);
     }
     @keyframes fadeInUp {
@@ -153,6 +165,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      -webkit-user-select: none;
       user-select: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.07);
       letter-spacing: 0.5px;
@@ -300,7 +313,14 @@
       font-family: 'Permanent Marker', cursive, sans-serif;
       letter-spacing: 1px;
       text-shadow: 1px 1px 0 #fff, 2px 2px 2px #0002;
+      -webkit-user-select: none;
       user-select: none;
+    }
+    .online-icon {
+      font-size: 1.2em;
+    }
+    .city-label {
+      font-size: 1.1em;
     }
 
     /* Estilos para o box do tempo */
@@ -324,7 +344,10 @@
   <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
   <script>
     (function(){
-      emailjs.init('SEU_USER_ID'); // Substitua pelo seu userID do EmailJS
+      const emailJsUserId = 'SEU_USER_ID';
+      if (typeof emailjs !== 'undefined' && emailJsUserId !== 'SEU_USER_ID') {
+        emailjs.init(emailJsUserId);
+      }
     })();
   </script>
 </head>
@@ -334,11 +357,12 @@
     <div id="online-users">
       <!-- Removido o emoticon de grupo 👥 -->
       <span id="onlineCount">1</span>
-      <span style="font-size:1.2em;">🧑</span>
+      <span class="online-icon">🧑</span>
       <span id="onlineText">pessoa online</span>
     </div>
-    <div class="messages" id="messages"></div>
-    <div class="input-area">
+    <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat"></div>
+    <form class="input-area" id="mainChatForm" autocomplete="off">
+      <label class="sr-only" for="emojiSelect">Emoji</label>
       <select id="emojiSelect" title="Escolha um emoji">
         <option value="😀">😀</option>
         <option value="😎">😎</option>
@@ -356,65 +380,132 @@
         <option value="🎮">🎮</option>
         <option value="🎤">🎤</option>
       </select>
+      <label class="sr-only" for="colorPicker">Cor do nome</label>
       <input type="color" id="colorPicker" value="#2563eb" title="Escolha a cor do nome">
+      <label class="sr-only" for="username">Nome de usuário</label>
       <input type="text" id="username" placeholder="Seu nome" maxlength="16">
+      <label class="sr-only" for="messageInput">Mensagem</label>
       <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-      <button onclick="sendMessage()">Enviar</button>
+      <button type="submit">Enviar</button>
       <button id="audioBtn" type="button">🎤 Áudio</button>
-      <span id="recordingStatus" style="display:none;" class="recording">Gravando...</span>
-    </div>
+      <span id="recordingStatus" class="recording" hidden>Gravando...</span>
+    </form>
   </div>
-  <div id="weather-box" style="
-  position: fixed;
-  right: 36px;
-  bottom: 24px;
-  background: rgba(255,255,255,0.93);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px #0002;
-  padding: 12px 18px;
-  font-family: 'Permanent Marker', cursive, sans-serif;
-  font-size: 1.08em;
-  color: #2563eb;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-">
+  <div id="weather-box">
   <span id="weather-temp">--°C</span>
   <span id="weather-desc"></span>
   <span id="weather-icon"></span>
-  <span style="font-size:1.1em;">BH</span>
+  <span class="city-label">BH</span>
 </div>
-  <script>
-    // Simulação de chat local (não é em tempo real entre vários usuários reais)
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    import { supabaseConfig } from './firebase-config.js';
+
     const messagesDiv = document.getElementById('messages');
+    const mainChatForm = document.getElementById('mainChatForm');
     const usernameInput = document.getElementById('username');
     const messageInput = document.getElementById('messageInput');
     const emojiSelect = document.getElementById('emojiSelect');
     const colorPicker = document.getElementById('colorPicker');
     const audioBtn = document.getElementById('audioBtn');
     const recordingStatus = document.getElementById('recordingStatus');
+    const onlineCountElem = document.getElementById('onlineCount');
+    const onlineTextElem = document.getElementById('onlineText');
 
     let mainMessageCount = 0;
+    let currentUser = null;
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioTimeout;
+    let canUseRealtime = false;
+    let presenceChannel = null;
+    let messagesChannel = null;
+    let supabase = null;
 
-    function sendMessage() {
-      const username = usernameInput.value.trim() || "Anônimo";
-      const text = messageInput.value.trim();
-      const emoji = emojiSelect.value;
-      const color = colorPicker.value;
-      if (!text) return;
+    const renderedMessageKeys = new Set();
+
+    function isSupabaseConfigured() {
+      return (
+        typeof supabaseConfig.url === 'string' &&
+        typeof supabaseConfig.anonKey === 'string' &&
+        !supabaseConfig.url.startsWith('COLE_') &&
+        !supabaseConfig.anonKey.startsWith('COLE_')
+      );
+    }
+
+    function getOrCreateClientId() {
+      const saved = window.localStorage.getItem('chatvista.clientId');
+      if (saved) return saved;
+
+      const fallback = `user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const generated = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : fallback;
+      window.localStorage.setItem('chatvista.clientId', generated);
+      return generated;
+    }
+
+    function normalizeMessage(payload) {
+      return {
+        id: payload.id || payload.created_at || payload.createdAt || payload.audio_url || payload.text,
+        username: payload.username || 'Anônimo',
+        emoji: payload.emoji || '😀',
+        color: payload.color || '#2563eb',
+        type: payload.type,
+        text: payload.text,
+        audioUrl: payload.audio_url || payload.audioUrl || ''
+      };
+    }
+
+    function buildUsernameTag(username, emoji, color) {
+      const usernameTag = document.createElement('span');
+      usernameTag.className = 'username';
+      usernameTag.style.color = color;
+      usernameTag.textContent = `${emoji} ${username}:`;
+      return usernameTag;
+    }
+
+    function renderTextMessage(payload) {
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
-      msgElem.innerHTML = `<span class="username" style="color:${color}" data-username="${username}">${emoji} ${username}:</span> ${text}`;
+      msgElem.appendChild(buildUsernameTag(payload.username, payload.emoji, payload.color));
+      msgElem.append(` ${payload.text}`);
       messagesDiv.appendChild(msgElem);
-      messageInput.value = '';
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
 
-      // Contador de mensagens principais
-      mainMessageCount++;
-      if (mainMessageCount % 10 === 0) {
-        showAdPrompt();
+    function renderAudioMessage(payload) {
+      const msgElem = document.createElement('div');
+      msgElem.className = 'audio-message';
+      msgElem.appendChild(buildUsernameTag(payload.username, payload.emoji, payload.color));
+
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = payload.audioUrl;
+      audio.style.verticalAlign = 'middle';
+
+      msgElem.appendChild(audio);
+      messagesDiv.appendChild(msgElem);
+    }
+
+    function renderIncomingMessage(messageKey, payload) {
+      if (renderedMessageKeys.has(messageKey)) return;
+      renderedMessageKeys.add(messageKey);
+
+      const message = normalizeMessage(payload);
+
+      if (message.type === 'audio' && message.audioUrl) {
+        renderAudioMessage(message);
+      } else if (message.type === 'text' && message.text) {
+        renderTextMessage(message);
       }
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function getCurrentProfile() {
+      return {
+        username: usernameInput.value.trim() || 'Anônimo',
+        emoji: emojiSelect.value,
+        color: colorPicker.value
+      };
     }
 
     function showAdPrompt() {
@@ -427,17 +518,21 @@
       adElem.style.margin = '16px 0';
       adElem.style.textAlign = 'center';
       adElem.style.fontWeight = 'bold';
-      adElem.innerHTML = `
-        🎯 Quer anunciar seu negócio no chat?
-        <button id="adBtn" style="margin-left:8px;padding:6px 14px;border-radius:6px;border:none;background:#2563eb;color:#fff;cursor:pointer;">
-          Anunciar
-        </button>
-      `;
-      messagesDiv.appendChild(adElem);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-      document.getElementById('adBtn').onclick = function() {
-        if (document.getElementById('adModal')) return; // Evita múltiplos modais
+      const textNode = document.createTextNode('🎯 Quer anunciar seu negócio no chat? ');
+      const adBtn = document.createElement('button');
+      adBtn.type = 'button';
+      adBtn.textContent = 'Anunciar';
+      adBtn.style.marginLeft = '8px';
+      adBtn.style.padding = '6px 14px';
+      adBtn.style.borderRadius = '6px';
+      adBtn.style.border = 'none';
+      adBtn.style.background = '#2563eb';
+      adBtn.style.color = '#fff';
+      adBtn.style.cursor = 'pointer';
+
+      adBtn.addEventListener('click', function () {
+        if (document.getElementById('adModal')) return;
 
         const modal = document.createElement('div');
         modal.id = 'adModal';
@@ -454,7 +549,7 @@
 
         modal.innerHTML = `
           <div style="background:#fff; border-radius:12px; padding:32px 28px; box-shadow:0 8px 32px #0003; min-width:320px; max-width:90vw; font-family:Arial,sans-serif; position:relative;">
-            <button id="closeAdModal" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4em;cursor:pointer;color:#2563eb;">✖</button>
+            <button id="closeAdModal" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4em;cursor:pointer;color:#2563eb;" type="button">✖</button>
             <h2 style="margin-top:0;color:#2563eb;font-family:'Permanent Marker',cursive,sans-serif;font-size:1.3em;">Anunciar no Chat</h2>
             <form id="adForm" style="display:flex;flex-direction:column;gap:14px;">
               <input type="text" id="adNome" placeholder="Seu nome" required style="padding:10px;border-radius:6px;border:1px solid #ccc;font-size:1em;">
@@ -466,222 +561,325 @@
         `;
         document.body.appendChild(modal);
 
-        document.getElementById('closeAdModal').onclick = () => modal.remove();
+        document.getElementById('closeAdModal').addEventListener('click', () => modal.remove());
 
-        // Substitua o onsubmit do formulário pelo código abaixo:
-        document.getElementById('adForm').onsubmit = function(e) {
+        document.getElementById('adForm').addEventListener('submit', function (e) {
           e.preventDefault();
           const nome = document.getElementById('adNome').value.trim();
           const telefone = document.getElementById('adTelefone').value.trim();
           const email = document.getElementById('adEmail').value.trim();
+
           if (!nome || !telefone || !email) {
-            alert('Preencha todos os campos!');
+            alert('Preencha todos os campos.');
             return;
           }
 
-          emailjs.send('service_ec1f9tb', 'template_apgrk0k', {
-            nome: nome,
-            telefone: telefone,
-            email: email
-          }).then(function(response) {
-            alert('Dados enviados com sucesso!');
-            modal.remove();
-          }, function(error) {
-            alert('Erro ao enviar. Tente novamente.');
-          });
-        };
-      };
+          if (typeof window.emailjs === 'undefined') {
+            alert('Serviço de e-mail indisponível no momento.');
+            return;
+          }
+
+          window.emailjs.send('service_ec1f9tb', 'template_apgrk0k', { nome, telefone, email }).then(
+            function () {
+              alert('Dados enviados com sucesso!');
+              modal.remove();
+            },
+            function () {
+              alert('Erro ao enviar. Tente novamente.');
+            }
+          );
+        });
+      });
+
+      adElem.appendChild(textNode);
+      adElem.appendChild(adBtn);
+      messagesDiv.appendChild(adElem);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // Permite enviar com Enter
-    messageInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') sendMessage();
-    });
-    usernameInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') messageInput.focus();
+    function setInputsDisabled(disabled) {
+      usernameInput.disabled = disabled;
+      messageInput.disabled = disabled;
+      emojiSelect.disabled = disabled;
+      colorPicker.disabled = disabled;
+      audioBtn.disabled = disabled;
+      const submitBtn = mainChatForm.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = disabled;
+    }
+
+    async function loadInitialMessages() {
+      const { data, error } = await supabase
+        .from(supabaseConfig.messagesTable)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) {
+        throw error;
+      }
+
+      (data || []).reverse().forEach(function (row) {
+        renderIncomingMessage(String(row.id || row.created_at), row);
+      });
+    }
+
+    function updatePresenceCount() {
+      if (!presenceChannel) return;
+      const presenceState = presenceChannel.presenceState();
+      const onlineCount = Object.keys(presenceState).length;
+      onlineCountElem.textContent = String(onlineCount);
+      onlineTextElem.textContent = onlineCount === 1 ? 'pessoa online' : 'pessoas online';
+    }
+
+    async function trackPresence() {
+      if (!presenceChannel) return;
+      const profile = getCurrentProfile();
+      await presenceChannel.track({
+        username: profile.username,
+        updatedAt: Date.now()
+      });
+    }
+
+    function bindPresence() {
+      presenceChannel = supabase.channel(`presence:${supabaseConfig.roomName}`, {
+        config: {
+          presence: {
+            key: currentUser.uid
+          }
+        }
+      });
+
+      presenceChannel.on('presence', { event: 'sync' }, updatePresenceCount);
+      presenceChannel.subscribe(async function (status) {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await trackPresence();
+          } catch {
+            onlineCountElem.textContent = '0';
+            onlineTextElem.textContent = 'erro de presença';
+          }
+        }
+      });
+    }
+
+    function bindMessageRealtime() {
+      messagesChannel = supabase
+        .channel(`messages:${supabaseConfig.roomName}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: supabaseConfig.messagesTable
+          },
+          function (payload) {
+            if (!payload || !payload.new) return;
+            renderIncomingMessage(String(payload.new.id || payload.new.created_at), payload.new);
+          }
+        )
+        .subscribe();
+    }
+
+    mainChatForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (!canUseRealtime || !currentUser) return;
+
+      const { username, emoji, color } = getCurrentProfile();
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      try {
+        await supabase.from(supabaseConfig.messagesTable).insert({
+          user_id: currentUser.uid,
+          username,
+          emoji,
+          color,
+          type: 'text',
+          text,
+          created_at: new Date().toISOString()
+        });
+
+        messageInput.value = '';
+        messageInput.focus();
+
+        mainMessageCount++;
+        if (mainMessageCount % 10 === 0) {
+          showAdPrompt();
+        }
+      } catch {
+        alert('Não foi possível enviar a mensagem.');
+      }
     });
 
-    // Áudio
-    let mediaRecorder;
-    let audioChunks = [];
-    let audioTimeout;
+    usernameInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        messageInput.focus();
+      }
+    });
 
-    audioBtn.addEventListener('click', async function() {
-      if (mediaRecorder && mediaRecorder.state === "recording") {
+    usernameInput.addEventListener('input', function () {
+      if (!presenceChannel || !currentUser) return;
+      trackPresence().catch(function () {});
+    });
+
+    audioBtn.addEventListener('click', async function () {
+      if (!canUseRealtime || !currentUser) return;
+
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
         stopRecording();
         return;
       }
-      // Solicita permissão do microfone
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.ondataavailable = e => {
+
+        mediaRecorder.ondataavailable = function (e) {
           if (e.data.size > 0) audioChunks.push(e.data);
         };
-        mediaRecorder.onstop = () => {
+
+        mediaRecorder.onstop = async function () {
+          const profile = getCurrentProfile();
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          const audioUrl = URL.createObjectURL(audioBlob);
-          addAudioMessage(audioUrl);
+
+          try {
+            const path = `${currentUser.uid}/${Date.now()}.webm`;
+            const bucket = supabase.storage.from(supabaseConfig.audioBucket);
+
+            const { error: uploadError } = await bucket.upload(path, audioBlob, {
+              contentType: 'audio/webm',
+              upsert: false
+            });
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = bucket.getPublicUrl(path);
+            const audioUrl = publicUrlData && publicUrlData.publicUrl;
+            if (!audioUrl) throw new Error('Sem URL pública para áudio');
+
+            await supabase.from(supabaseConfig.messagesTable).insert({
+              user_id: currentUser.uid,
+              username: profile.username,
+              emoji: profile.emoji,
+              color: profile.color,
+              type: 'audio',
+              audio_url: audioUrl,
+              created_at: new Date().toISOString()
+            });
+          } catch {
+            alert('Não foi possível enviar o áudio.');
+          }
         };
+
         mediaRecorder.start();
-        recordingStatus.style.display = "inline";
-        audioBtn.textContent = "⏹️ Parar";
-        // Para automaticamente após 10 segundos
+        recordingStatus.hidden = false;
+        audioBtn.textContent = '⏹️ Parar';
+
         audioTimeout = setTimeout(() => {
-          if (mediaRecorder && mediaRecorder.state === "recording") {
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
             stopRecording();
           }
         }, 10000);
-      } catch (err) {
-        alert("Permissão do microfone negada ou não suportada.");
+      } catch {
+        alert('Permissão do microfone negada ou não suportada.');
       }
     });
 
     function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state === "recording") {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
-        recordingStatus.style.display = "none";
-        audioBtn.textContent = "🎤 Áudio";
+        recordingStatus.hidden = true;
+        audioBtn.textContent = '🎤 Áudio';
         clearTimeout(audioTimeout);
       }
     }
 
-    function addAudioMessage(audioUrl) {
-      const username = usernameInput.value.trim() || "Anônimo";
-      const emoji = emojiSelect.value;
-      const color = colorPicker.value;
-      const msgElem = document.createElement('div');
-      msgElem.className = 'audio-message';
-      msgElem.innerHTML = `<span class="username" style="color:${color}" data-username="${username}">${emoji} ${username}:</span>
-        <audio controls src="${audioUrl}" style="vertical-align:middle;"></audio>`;
-      messagesDiv.appendChild(msgElem);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    async function updateWeather() {
+      try {
+        const apiKey = 'b6907d289e10d714a6e88b30761fae22';
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=Belo%20Horizonte,BR&appid=${apiKey}&units=metric&lang=pt_br`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Falha ao consultar clima');
+
+        const data = await response.json();
+        if (!data.main || !data.weather || !data.weather[0]) throw new Error('Resposta inválida');
+
+        document.getElementById('weather-temp').textContent = `${Math.round(data.main.temp)}°C`;
+        document.getElementById('weather-desc').textContent = data.weather[0].description;
+
+        const iconContainer = document.getElementById('weather-icon');
+        iconContainer.innerHTML = '';
+
+        const icon = document.createElement('img');
+        icon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}.png`;
+        icon.alt = 'ícone do clima';
+        icon.style.verticalAlign = 'middle';
+        icon.style.width = '28px';
+        icon.style.height = '28px';
+        iconContainer.appendChild(icon);
+      } catch {
+        document.getElementById('weather-temp').textContent = '--°C';
+        document.getElementById('weather-desc').textContent = '';
+        document.getElementById('weather-icon').innerHTML = '';
+      }
     }
 
-    // Clique no nome do usuário para abrir chat privado
-    messagesDiv.addEventListener('click', function(e) {
-      if (e.target.classList.contains('username')) {
-        const privateUser = e.target.getAttribute('data-username');
-        openPrivateChat(privateUser);
+    async function initRealtime() {
+      if (!isSupabaseConfigured()) {
+        setInputsDisabled(true);
+        onlineCountElem.textContent = '0';
+        onlineTextElem.textContent = 'configure o Supabase';
+        const aviso = document.createElement('div');
+        aviso.className = 'message';
+        aviso.textContent = 'Configure as credenciais do Supabase em firebase-config.js para ativar o chat em tempo real.';
+        messagesDiv.appendChild(aviso);
+        return;
+      }
+
+      try {
+        supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
+        currentUser = { uid: getOrCreateClientId() };
+        canUseRealtime = true;
+
+        await loadInitialMessages();
+        bindPresence();
+        bindMessageRealtime();
+      } catch {
+        setInputsDisabled(true);
+        const aviso = document.createElement('div');
+        aviso.className = 'message';
+        aviso.textContent = 'Falha ao conectar ao Supabase. Verifique tabela, bucket e configurações.';
+        messagesDiv.appendChild(aviso);
+      }
+    }
+
+    window.addEventListener('beforeunload', function () {
+      if (presenceChannel) {
+        presenceChannel.unsubscribe();
+      }
+      if (messagesChannel) {
+        messagesChannel.unsubscribe();
       }
     });
 
-    // Gerenciamento de chats privados (local, simulado)
-    let privateChats = {};
-
-    function openPrivateChat(user) {
-      if (privateChats[user]) {
-        // Já existe, traz para frente
-        privateChats[user].style.display = 'flex';
-        privateChats[user].classList.remove('minimized');
-        return;
-      }
-      // Cria janela privada
-      const chatBox = document.createElement('div');
-      chatBox.className = 'private-chat';
-      chatBox.innerHTML = `
-        <div class="private-header">
-          <span>Conversa privada com ${user}</span>
-          <span class="header-btns">
-            <button title="Minimizar" type="button" onclick="minimizePrivateChat('${user}')">_</button>
-            <button title="Fechar" type="button" onclick="this.parentElement.parentElement.parentElement.style.display='none'">✖</button>
-          </span>
-        </div>
-        <div class="private-messages" id="private-messages-${user}"></div>
-        <form class="private-input-area" onsubmit="event.preventDefault(); sendPrivateMessage('${user}');">
-          <input type="text" placeholder="Digite sua mensagem..." id="private-input-${user}">
-          <label for="private-file-${user}">
-            <span title="Enviar arquivo">📎</span>
-            <input type="file" id="private-file-${user}" title="Enviar arquivo">
-          </label>
-          <button type="submit">Enviar</button>
-        </form>
-      `;
-      document.body.appendChild(chatBox);
-      privateChats[user] = chatBox;
-
-      // Minimizar função global
-      window.minimizePrivateChat = function(u) {
-        if (privateChats[u]) {
-          privateChats[u].classList.toggle('minimized');
-        }
-      };
-
-      // Permite enviar com Enter
-      chatBox.querySelector(`#private-input-${user}`).addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') sendPrivateMessage(user);
-      });
-
-      // Envio de arquivo
-      chatBox.querySelector(`#private-file-${user}`).addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const messagesBox = document.getElementById(`private-messages-${user}`);
-        const myName = usernameInput.value.trim() || "Você";
-        const fileUrl = URL.createObjectURL(file);
-        let fileHtml = '';
-        if (file.type.startsWith('image/')) {
-          fileHtml = `<img src="${fileUrl}" alt="imagem">`;
-        } else {
-          fileHtml = `<a href="${fileUrl}" download="${file.name}">${file.name}</a>`;
-        }
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'private-file-message';
-        msgDiv.innerHTML = `<b>${myName}:</b> ${fileHtml}`;
-        messagesBox.appendChild(msgDiv);
-        messagesBox.scrollTop = messagesBox.scrollHeight;
-        e.target.value = '';
-      });
-    }
-
-    function sendPrivateMessage(user) {
-      const input = document.getElementById(`private-input-${user}`);
-      const msg = input.value.trim();
-      if (!msg) return;
-      const messagesBox = document.getElementById(`private-messages-${user}`);
-      const myName = usernameInput.value.trim() || "Você";
-      messagesBox.innerHTML += `<div><b>${myName}:</b> ${msg}</div>`;
-      input.value = '';
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-    }
-
-    // Simulação de usuários online (local, apenas para efeito visual)
-    // Em um sistema real, seria necessário backend para contar usuários reais
-    function updateOnlineCount() {
-      // Simula 1 usuário (você). Para testes, altere o valor abaixo:
-      const onlineCount = 1;
-      document.getElementById('onlineCount').textContent = onlineCount;
-      document.getElementById('onlineText').textContent =
-        onlineCount === 1 ? 'pessoa online' : 'pessoas online';
-    }
-    updateOnlineCount();
-
-    async function updateWeather() {
-  try {
-    // Use sua própria chave da OpenWeatherMap se quiser mais requisições
-    const apiKey = 'b6907d289e10d714a6e88b30761fae22'; // Chave demo (limite baixo)
-    const url = `https://api.openweathermap.org/data/2.5/weather?q=Belo%20Horizonte,BR&appid=${apiKey}&units=metric&lang=pt_br`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.main && data.weather) {
-      document.getElementById('weather-temp').textContent = `${Math.round(data.main.temp)}°C`;
-      document.getElementById('weather-desc').textContent = data.weather[0].description;
-      document.getElementById('weather-icon').innerHTML =
-        `<img src="https://openweathermap.org/img/wn/${data.weather[0].icon}.png" alt="icon" style="vertical-align:middle;width:28px;height:28px;">`;
+    if (!isSupabaseConfigured()) {
+      setInputsDisabled(true);
+      onlineCountElem.textContent = '0';
+      onlineTextElem.textContent = 'configure o Supabase';
+      const aviso = document.createElement('div');
+      aviso.className = 'message';
+      aviso.textContent = 'Configure as credenciais do Supabase em firebase-config.js para ativar o chat em tempo real.';
+      messagesDiv.appendChild(aviso);
     } else {
-      document.getElementById('weather-temp').textContent = '--°C';
-      document.getElementById('weather-desc').textContent = '';
-      document.getElementById('weather-icon').innerHTML = '';
+      initRealtime();
     }
-  } catch {
-    document.getElementById('weather-temp').textContent = '--°C';
-    document.getElementById('weather-desc').textContent = '';
-    document.getElementById('weather-icon').innerHTML = '';
-  }
-}
-updateWeather();
-setInterval(updateWeather, 600000); // Atualiza a cada 10 minutos
+
+    updateWeather();
+    const weatherTimer = setInterval(updateWeather, 600000);
+    window.addEventListener('beforeunload', function () {
+      clearInterval(weatherTimer);
+    });
   </script>
 </body>
 </html>

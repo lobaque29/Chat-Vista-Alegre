@@ -576,6 +576,8 @@
     let privateTitleFlashTimer = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
+    const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+    let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
@@ -707,6 +709,19 @@
       messagesDiv.appendChild(msgElem);
     }
 
+    function scrollMessagesToLatest() {
+      requestAnimationFrame(function () {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+    }
+
+    function scrollPrivateMessagesToLatest() {
+      if (!privateMessagesElem) return;
+      requestAnimationFrame(function () {
+        privateMessagesElem.scrollTop = privateMessagesElem.scrollHeight;
+      });
+    }
+
     function renderAudioMessage(payload) {
       const msgElem = document.createElement('div');
       msgElem.className = 'audio-message';
@@ -730,7 +745,7 @@
 
       if (message.type === 'audio' && message.audioUrl) renderAudioMessage(message);
       else if (message.type === 'text' && message.text) renderTextMessage(message);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      scrollMessagesToLatest();
     }
 
     function buildMessageKey(payload) {
@@ -1116,7 +1131,7 @@
       msgElem.appendChild(name);
       msgElem.appendChild(text);
       privateMessagesElem.appendChild(msgElem);
-      privateMessagesElem.scrollTop = privateMessagesElem.scrollHeight;
+      scrollPrivateMessagesToLatest();
     }
 
     function showPrivateSystemMessage(text) {
@@ -1125,7 +1140,17 @@
       msgElem.className = 'private-msg system';
       msgElem.textContent = text;
       privateMessagesElem.appendChild(msgElem);
-      privateMessagesElem.scrollTop = privateMessagesElem.scrollHeight;
+      scrollPrivateMessagesToLatest();
+    }
+
+    function startMessageCleanupScheduler() {
+      if (messageCleanupInterval) {
+        clearInterval(messageCleanupInterval);
+      }
+
+      messageCleanupInterval = setInterval(function () {
+        cleanupAllMessages().catch(function () {});
+      }, MESSAGE_CLEANUP_INTERVAL_MS);
     }
 
     function renderPrivateConversation() {
@@ -1602,6 +1627,7 @@
         bindPrivateInbox();
         bindBroadcastRealtime();
         await checkDatabaseAccess();
+        startMessageCleanupScheduler();
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
@@ -1656,6 +1682,10 @@
 
     window.addEventListener('beforeunload', function () {
       stopPrivateTitleFlash();
+      if (messageCleanupInterval) {
+        clearInterval(messageCleanupInterval);
+        messageCleanupInterval = null;
+      }
       if (messagePollingInterval) {
         clearInterval(messagePollingInterval);
         messagePollingInterval = null;

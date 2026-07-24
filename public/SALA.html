@@ -576,6 +576,7 @@
     let privateTitleFlashTimer = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
+    const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
@@ -890,7 +891,16 @@
             return;
           }
 
-          window.emailjs.send('service_ec1f9tb', 'template_apgrk0k', { nome, marca, telefone, email }).then(
+          window.emailjs.send('service_ec1f9tb', 'template_apgrk0k', {
+            nome,
+            marca,
+            telefone,
+            email,
+            to_email: AD_LEAD_DESTINATION_EMAIL,
+            destination_email: AD_LEAD_DESTINATION_EMAIL,
+            recipient_email: AD_LEAD_DESTINATION_EMAIL,
+            reply_to: email
+          }).then(
             function () {
               alert('Dados enviados com sucesso!');
               modal.remove();

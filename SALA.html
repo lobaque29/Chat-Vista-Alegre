@@ -834,8 +834,35 @@
           colorPicker.value = saved.color;
         }
 
+        // Restaurar foto de avatar se existir
         if (saved && typeof saved.avatarImage === 'string' && saved.avatarImage.startsWith('data:image/')) {
           avatarPhotoDataUrl = saved.avatarImage;
+          
+          // Atualizar preview para mostrar a foto restaurada
+          refreshAvatarPreview();
+          
+          // Fazer upload automático em background para obter URL pública
+          // (sem bloquear a interação do usuário)
+          if (supabase && currentUser) {
+            console.log('[DEBUG] Restaurando foto de avatar do localStorage e fazendo upload...');
+            avatarUploadInProgress = true;
+            avatarUploadPromise = uploadAvatarToStorage(avatarPhotoDataUrl)
+              .then(function (publicUrl) {
+                avatarPhotoUrl = publicUrl || avatarPhotoDataUrl;
+                console.log('[DEBUG] Avatar restaurado e uploadado automaticamente');
+                return publicUrl;
+              })
+              .catch(function (error) {
+                console.error('[DEBUG] Erro ao fazer upload automático de avatar:', error);
+                avatarPhotoUrl = ''; // Deixar vazio, vai reter ir no data URL se necessário
+              })
+              .finally(function () {
+                avatarUploadInProgress = false;
+              });
+          } else {
+            // Fallback se Supabase não disponível ainda
+            avatarPhotoUrl = avatarPhotoDataUrl;
+          }
         }
       } catch {}
     }
@@ -1039,7 +1066,7 @@
     }
 
     function buildMessageKey(payload) {
-      // Usar ID como chave primária (mais confiável que created_at)
+t      // Usar ID como chave primária (mais confiável que created_at)
       if (payload.id) return String(payload.id);
       return String(
         (payload.user_id || payload.userId || 'anon') + '|' +
@@ -2501,6 +2528,26 @@
         supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
         currentUser = { uid: getOrCreateClientId() };
         canUseRealtime = true;
+        
+        // Se houver foto de avatar no localStorage, fazer upload automático
+        if (avatarPhotoDataUrl && !avatarPhotoUrl) {
+          console.log('[DEBUG] Iniciando upload automático de avatar restaurado...');
+          avatarUploadInProgress = true;
+          avatarUploadPromise = uploadAvatarToStorage(avatarPhotoDataUrl)
+            .then(function (publicUrl) {
+              avatarPhotoUrl = publicUrl || avatarPhotoDataUrl;
+              console.log('[DEBUG] Avatar restaurado e uploadado com sucesso!');
+              return publicUrl;
+            })
+            .catch(function (error) {
+              console.error('[DEBUG] Erro ao fazer upload automático de avatar:', error);
+              avatarPhotoUrl = ''; // Deixar vazio, vai tentar novamente com data URL se necessário
+            })
+            .finally(function () {
+              avatarUploadInProgress = false;
+            });
+        }
+        
         bindPrivateInbox();
         bindBroadcastRealtime();
         await checkDatabaseAccess();

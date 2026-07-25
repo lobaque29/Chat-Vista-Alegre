@@ -1409,8 +1409,8 @@
         const { data, error } = await supabase
           .from(supabaseConfig.messagesTable)
           .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200); // Limitar ao histórico recente (ultimas 200)
+          .order('created_at', { ascending: false });
+        // SEM LIMITE - carregar TODAS as mensagens do histórico
 
         if (error) {
           console.error('[DEBUG] Erro ao carregar mensagens iniciais:', error);

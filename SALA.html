@@ -776,9 +776,9 @@
     const STRICT_NO_HISTORY_ON_REOPEN = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     function getStartOfTodayIso() {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      return startOfDay.toISOString();
+      // Usar UTC para comparação com banco de dados
+      const now = new Date();
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
     }
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';

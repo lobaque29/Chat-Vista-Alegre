@@ -757,6 +757,7 @@
     let emailJsInitialized = false;
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const STRICT_NO_HISTORY_ON_REOPEN = false;
+    const ENABLE_MESSAGE_CLEANUP = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     function getStartOfTodayIso() {
       const startOfDay = new Date();
@@ -1665,6 +1666,7 @@
     }
 
     function startMessageCleanupScheduler() {
+      if (!ENABLE_MESSAGE_CLEANUP) return;
       if (messageCleanupInterval) {
         clearInterval(messageCleanupInterval);
       }

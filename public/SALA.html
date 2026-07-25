@@ -742,7 +742,6 @@
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
     let messagePollingInterval = null;
-    let privateTitleFlashTimer = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
@@ -757,14 +756,12 @@
     let emailJsInitialized = false;
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const STRICT_NO_HISTORY_ON_REOPEN = false;
-    const ENABLE_MESSAGE_CLEANUP = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
     function getStartOfTodayIso() {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       return startOfDay.toISOString();
     }
-    let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
@@ -1510,22 +1507,24 @@
     }
 
     async function cleanupExpiredMessages(options) {
-      if (!supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
-      const keepalive = Boolean(options && options.keepalive);
-      const cutoffIso = getHistoryCutoffIso();
-      const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?created_at=lt.${encodeURIComponent(cutoffIso)}`;
-      try {
-        await fetch(endpoint, {
-          method: 'DELETE',
-          headers: {
-            apikey: supabaseConfig.anonKey,
-            Authorization: `Bearer ${supabaseConfig.anonKey}`
-          },
-          keepalive
-        });
-      } catch {
-        // Ignora erro para nao bloquear inicializacao/fechamento da pagina.
-      }
+      // Limpeza de mensagens desabilitada - preservar histórico do dia inteiro
+      return;
+      // if (!supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
+      // const keepalive = Boolean(options && options.keepalive);
+      // const cutoffIso = getHistoryCutoffIso();
+      // const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?created_at=lt.${encodeURIComponent(cutoffIso)}`;
+      // try {
+      //   await fetch(endpoint, {
+      //     method: 'DELETE',
+      //     headers: {
+      //       apikey: supabaseConfig.anonKey,
+      //       Authorization: `Bearer ${supabaseConfig.anonKey}`
+      //     },
+      //     keepalive
+      //   });
+      // } catch {
+      //   // Ignora erro para nao bloquear inicializacao/fechamento da pagina.
+      // }
     }
 
     function resolveUserIdByUsername(username) {
@@ -1663,18 +1662,6 @@
       msgElem.textContent = text;
       privateMessagesElem.appendChild(msgElem);
       scrollPrivateMessagesToLatest();
-    }
-
-    function startMessageCleanupScheduler() {
-      if (!ENABLE_MESSAGE_CLEANUP) return;
-      if (messageCleanupInterval) {
-        clearInterval(messageCleanupInterval);
-      }
-
-      cleanupExpiredMessages().catch(function () {});
-      messageCleanupInterval = setInterval(function () {
-        cleanupExpiredMessages().catch(function () {});
-      }, MESSAGE_CLEANUP_INTERVAL_MS);
     }
 
     function renderPrivateConversation() {
@@ -2254,7 +2241,7 @@
         bindPrivateInbox();
         bindBroadcastRealtime();
         await checkDatabaseAccess();
-        startMessageCleanupScheduler();
+        // startMessageCleanupScheduler(); // Desabilitado - preservar histórico do dia inteiro
 
         if (FORCE_BROADCAST_MODE) {
           useBroadcastFallback = true;
@@ -2309,10 +2296,6 @@
 
     window.addEventListener('beforeunload', function () {
       stopPrivateTitleFlash();
-      if (messageCleanupInterval) {
-        clearInterval(messageCleanupInterval);
-        messageCleanupInterval = null;
-      }
       if (messagePollingInterval) {
         clearInterval(messagePollingInterval);
         messagePollingInterval = null;

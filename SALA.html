@@ -886,13 +886,18 @@
       const badge = document.createElement('span');
       badge.className = 'avatar-badge';
 
-      if (avatarType === 'photo' && avatarImage) {
+      // Avatar é opcional - permite 'none' sem exibir nada
+      if (avatarType === 'none' || !avatarType) {
+        badge.textContent = ''; // Sem avatar visível
+      } else if (avatarType === 'photo' && avatarImage) {
         const img = document.createElement('img');
         img.src = avatarImage;
         img.alt = 'avatar';
         badge.appendChild(img);
+      } else if (emoji) {
+        badge.textContent = emoji;
       } else {
-        badge.textContent = emoji || DEFAULT_AVATAR_SYMBOL;
+        badge.textContent = DEFAULT_AVATAR_SYMBOL; // fallback se nada especificado
       }
 
       return badge;
@@ -924,7 +929,9 @@
     function refreshAvatarPreview() {
       if (!avatarPreview) return;
       avatarPreview.innerHTML = '';
-      avatarPreview.appendChild(createAvatarBadge(avatarPhotoDataUrl ? 'photo' : 'emoji', avatarPhotoDataUrl, DEFAULT_AVATAR_SYMBOL));
+      // Mostrar avatar no preview (foto se houver, senão vazio)
+      const previewType = avatarPhotoDataUrl ? 'photo' : 'none';
+      avatarPreview.appendChild(createAvatarBadge(previewType, avatarPhotoDataUrl, ''));
     }
 
     function renderTextMessage(payload) {
@@ -1099,13 +1106,23 @@ t      // Usar ID como chave primária (mais confiável que created_at)
     }
 
     function getCurrentProfile() {
-      const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
+      // Avatar é OPCIONAL - permite enviar sem foto ou emoji
+      let avatarType = 'none'; // padrão: sem avatar
+      let avatarImage = '';
+      let emoji = '';
+      
+      if (avatarPhotoDataUrl) {
+        avatarType = 'photo';
+        avatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+      }
+      // Se não tem foto, retorna sem avatar (não usa emoji padrão)
+      // Usuário pode escolher emoji manualmente se quiser
+      
       return {
         username: usernameInput.value.trim() || 'Anônimo',
-        emoji: DEFAULT_AVATAR_SYMBOL,
-        avatarType: resolvedAvatarType,
-        // Usar avatarPhotoUrl (URL pública) para persistência no banco, ou avatarPhotoDataUrl para fallback
-        avatarImage: resolvedAvatarType === 'photo' ? (avatarPhotoUrl || avatarPhotoDataUrl) : '',
+        emoji: emoji, // vazio por padrão, avatar é opcional
+        avatarType: avatarType,
+        avatarImage: avatarImage,
         color: colorPicker.value
       };
     }

@@ -740,6 +740,7 @@
     let privateSendBtn = null;
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
+    let avatarPhotoUrl = ''; // URL pública do bucket (para persistência)
     let messagePollingInterval = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
@@ -1046,7 +1047,8 @@
         username: usernameInput.value.trim() || 'Anônimo',
         emoji: DEFAULT_AVATAR_SYMBOL,
         avatarType: resolvedAvatarType,
-        avatarImage: resolvedAvatarType === 'photo' ? avatarPhotoDataUrl : '',
+        // Usar avatarPhotoUrl (URL pública) para persistência no banco, ou avatarPhotoDataUrl para fallback
+        avatarImage: resolvedAvatarType === 'photo' ? (avatarPhotoUrl || avatarPhotoDataUrl) : '',
         color: colorPicker.value
       };
     }
@@ -1099,6 +1101,39 @@
 
         img.src = objectUrl;
       });
+    }
+
+    async function uploadAvatarToStorage(dataUrl) {
+      // Fazer upload da foto de avatar para bucket do Supabase
+      // Retorna URL pública da foto para persistir no banco
+      if (!supabase || !currentUser || !dataUrl) return dataUrl;
+
+      try {
+        // Converter data URL para Blob
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+
+        // Upload para bucket
+        const path = `${currentUser.uid}/avatar-${Date.now()}.jpeg`;
+        const bucket = supabase.storage.from(supabaseConfig.audioBucket);
+
+        const { error: uploadError } = await bucket.upload(path, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+        if (uploadError) throw uploadError;
+
+        // Obter URL pública da foto
+        const { data: publicUrlData } = bucket.getPublicUrl(path);
+        const publicUrl = publicUrlData && publicUrlData.publicUrl;
+
+        console.log('[DEBUG] Avatar foto salvo em:', publicUrl);
+        return publicUrl || dataUrl; // Fallback para data URL
+      } catch (error) {
+        console.error('[DEBUG] Erro ao fazer upload de avatar:', error);
+        return dataUrl; // Fallback: usar data URL se upload falhar
+      }
     }
 
     function lockUsernameChoice() {
@@ -1925,14 +1960,15 @@
           delivered = true;
         }
 
-        // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
-        // arquivo mensagens salvam avatar_type para tipo, foto renderiza via broadcast
+        // Salvar no banco: avatar_image agora é URL pública (upload para bucket)
+        // Arquivo mensagens salvam foto do avatar com persistência
         const dbFilePayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
+          avatar_image: payload.avatar_image,
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2010,15 +2046,15 @@
       try {
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
-        // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
-        // avatar_image renderiza via broadcast em tempo real
-        // avatar_type (emoji ou photo) recuperado do banco para mostrar tipo no reload
+        // Salvar no banco: avatar_image agora é URL pública (upload para bucket)
+        // Avatar photo persiste via URL do bucket em vez de data URL gigante
         const dbPayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
+          avatar_image: payload.avatar_image,
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2076,6 +2112,7 @@
       const file = avatarPhotoInput.files && avatarPhotoInput.files[0];
       if (!file) {
         avatarPhotoDataUrl = '';
+        avatarPhotoUrl = '';
         refreshAvatarPreview();
         saveProfilePreference();
         return;
@@ -2085,6 +2122,7 @@
         alert('Escolha um arquivo de imagem válido para o avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        avatarPhotoUrl = '';
         refreshAvatarPreview();
         saveProfilePreference();
         return;
@@ -2094,10 +2132,24 @@
         avatarPhotoDataUrl = await buildAvatarDataUrl(file);
         refreshAvatarPreview();
         saveProfilePreference();
+        
+        // Fazer upload em background para obter URL pública persistente
+        if (supabase && currentUser) {
+          uploadAvatarToStorage(avatarPhotoDataUrl).then(function (publicUrl) {
+            avatarPhotoUrl = publicUrl;
+            console.log('[DEBUG] Avatar URL pública guardada para persistência');
+          }).catch(function (error) {
+            console.error('[DEBUG] Erro ao fazer upload de avatar:', error);
+            avatarPhotoUrl = avatarPhotoDataUrl; // Fallback para data URL
+          });
+        } else {
+          avatarPhotoUrl = avatarPhotoDataUrl; // Fallback se Supabase não disponível
+        }
       } catch {
         alert('Não foi possível processar a foto do avatar.');
         avatarPhotoInput.value = '';
         avatarPhotoDataUrl = '';
+        avatarPhotoUrl = '';
         refreshAvatarPreview();
         saveProfilePreference();
       }
@@ -2178,14 +2230,15 @@
               created_at: new Date().toISOString()
             };
 
-            // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
-            // avatar_image renderiza via broadcast, avatar_type persiste no banco
+            // Salvar no banco: avatar_image agora é URL pública (upload para bucket)
+            // Avatar photo persiste via URL do bucket
             const dbAudioPayload = {
               id: payload.id,
               user_id: payload.user_id,
               username: payload.username,
               emoji: payload.emoji,
               avatar_type: payload.avatar_type,
+              avatar_image: payload.avatar_image,
               color: payload.color,
               type: payload.type,
               audio_url: payload.audio_url,

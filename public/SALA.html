@@ -1925,14 +1925,14 @@
           delivered = true;
         }
 
-        // Criar payload para banco com avatar_type, avatar_image e ID persistidos
+        // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
+        // arquivo mensagens salvam avatar_type para tipo, foto renderiza via broadcast
         const dbFilePayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
-          avatar_image: payload.avatar_image,
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2010,16 +2010,15 @@
       try {
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
-        // Criar payload para banco COM avatar_type e avatar_image persistidos
-        // avatar_type e avatar_image agora salvam no banco para recuperar foto depois
-        // Incluir ID para garantir consistência entre local, broadcast e postgres_changes
+        // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
+        // avatar_image renderiza via broadcast em tempo real
+        // avatar_type (emoji ou photo) recuperado do banco para mostrar tipo no reload
         const dbPayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
-          avatar_image: payload.avatar_image,
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2179,15 +2178,14 @@
               created_at: new Date().toISOString()
             };
 
-            // Criar payload para banco COM id para garantir consistência
-            // avatar_type e avatar_image são persistidos no banco desde o último commit
+            // Salvar no banco: avatar_type APENAS (avatar_image é data URL muito grande)
+            // avatar_image renderiza via broadcast, avatar_type persiste no banco
             const dbAudioPayload = {
               id: payload.id,
               user_id: payload.user_id,
               username: payload.username,
               emoji: payload.emoji,
               avatar_type: payload.avatar_type,
-              avatar_image: payload.avatar_image,
               color: payload.color,
               type: payload.type,
               audio_url: payload.audio_url,

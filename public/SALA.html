@@ -731,6 +731,8 @@
     const recentUserIdsByUsername = new Map();
     const privateConversations = new Map();
     const privateOutChannels = new Map();
+    let lastSyncTimestamp = null; // Rastrear última sincronização para polling inteligente
+    let isLoadingInitialMessages = false; // Prevenir race condition durante carregamento inicial
     let privateInboxChannel = null;
     let activePrivateTarget = null;
     let privateChatElem = null;
@@ -1354,39 +1356,79 @@
     }
 
     async function loadInitialMessages() {
-      const { data, error } = await supabase
-        .from(supabaseConfig.messagesTable)
-        .select('*')
-        .order('created_at', { ascending: false });
+      if (isLoadingInitialMessages) return; // Prevenir race condition
+      isLoadingInitialMessages = true;
 
-      if (error) {
-        console.error('[DEBUG] Erro ao carregar mensagens:', error);
-        throw error;
+      try {
+        const { data, error } = await supabase
+          .from(supabaseConfig.messagesTable)
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200); // Limitar ao histórico recente (ultimas 200)
+
+        if (error) {
+          console.error('[DEBUG] Erro ao carregar mensagens iniciais:', error);
+          throw error;
+        }
+
+        console.log('[DEBUG] Carregadas', (data || []).length, 'mensagens iniciais');
+        
+        // Reverter para ordem cronológica (mais antigo → mais recente)
+        (data || []).reverse().forEach(function (row) {
+          renderIncomingMessage(buildMessageKey(row), row);
+          // Atualizar timestamp de última sincronização
+          const rowTime = new Date(row.created_at).getTime();
+          if (!lastSyncTimestamp || rowTime > lastSyncTimestamp) {
+            lastSyncTimestamp = rowTime;
+          }
+        });
+
+        console.log('[DEBUG] Histórico inicial carregado e renderizado com sucesso');
+      } finally {
+        isLoadingInitialMessages = false;
       }
-
-      console.log('[DEBUG] Carregadas', (data || []).length, 'mensagens');
-      (data || []).reverse().forEach(function (row) {
-        renderIncomingMessage(buildMessageKey(row), row);
-      });
     }
 
     async function pollLatestMessages() {
-      if (!supabase) return;
+      if (!supabase || isLoadingInitialMessages) return;
 
-      const { data, error } = await supabase
-        .from(supabaseConfig.messagesTable)
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        let query = supabase
+          .from(supabaseConfig.messagesTable)
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[DEBUG] Erro em polling:', error);
-        return;
+        // Se já sincronizou antes, carregar apenas mensagens DEPOIS do último timestamp
+        if (lastSyncTimestamp) {
+          const afterIso = new Date(lastSyncTimestamp + 1).toISOString(); // +1ms para evitar duplicação
+          query = query.gt('created_at', afterIso);
+        }
+
+        const { data, error } = await query.limit(50); // Limitar para não sobrecarregar
+
+        if (error) {
+          console.error('[DEBUG] Erro em polling:', error);
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          return; // Nenhuma mensagem nova
+        }
+
+        console.log('[DEBUG] Poll encontrou', data.length, 'mensagens novas');
+        
+        // Reverter para ordem cronológica e renderizar
+        data.reverse().forEach(function (row) {
+          renderIncomingMessage(buildMessageKey(row), row);
+          // Atualizar timestamp
+          const rowTime = new Date(row.created_at).getTime();
+          if (rowTime > lastSyncTimestamp) {
+            lastSyncTimestamp = rowTime;
+          }
+        });
+      } catch (err) {
+        console.error('[DEBUG] Exceção em polling:', err);
       }
-
-      console.log('[DEBUG] Poll: ', (data || []).length, 'mensagens');
-      (data || []).reverse().forEach(function (row) {
-        renderIncomingMessage(buildMessageKey(row), row);
-      });
     }
 
     function startMessagePolling() {

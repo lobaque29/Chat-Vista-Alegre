@@ -1941,12 +1941,22 @@
           size: typeof file.size === 'number' ? file.size : 0
         };
 
+        // Se escolheu foto e upload ainda em andamento, esperar terminar
+        let finalAvatarImage = profile.avatarImage;
+        if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+          // Avatar foto ainda está sendo feito upload, esperar
+          for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+          }
+          finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+        }
+
         const payload = {
           user_id: currentUser.uid,
           username: profile.username,
           emoji: profile.emoji,
           avatar_type: profile.avatarType,
-          avatar_image: profile.avatarImage,
+          avatar_image: finalAvatarImage,
           color: profile.color,
           type: 'text',
           text: createFileMessageText(fileMeta),
@@ -2032,12 +2042,23 @@
       const { username, emoji, color, avatarType, avatarImage } = profile;
       const text = messageInput.value.trim();
       if (!text) return;
+      
+      // Se escolheu foto e upload ainda em andamento, esperar terminar
+      let finalAvatarImage = avatarImage;
+      if (avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+        // Avatar foto ainda está sendo feito upload, esperar
+        for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+        }
+        finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+      }
+      
       const payload = {
         user_id: currentUser.uid,
         username,
         emoji,
         avatar_type: avatarType,
-        avatar_image: avatarImage,
+        avatar_image: finalAvatarImage,
         color,
         type: 'text',
         text,
@@ -2217,13 +2238,23 @@
             const audioUrl = publicUrlData && publicUrlData.publicUrl;
             if (!audioUrl) throw new Error('Sem URL pública para áudio');
 
+            // Se escolheu foto e upload ainda em andamento, esperar terminar
+            let finalAvatarImage = profile.avatarImage;
+            if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+              // Avatar foto ainda está sendo feito upload, esperar
+              for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+              }
+              finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+            }
+
             const payload = {
               id: `${currentUser.uid}-audio-${Date.now()}`,
               user_id: currentUser.uid,
               username: profile.username,
               emoji: profile.emoji,
               avatar_type: profile.avatarType,
-              avatar_image: profile.avatarImage,
+              avatar_image: finalAvatarImage,
               color: profile.color,
               type: 'audio',
               audio_url: audioUrl,

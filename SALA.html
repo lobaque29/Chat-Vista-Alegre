@@ -1975,12 +1975,22 @@
           size: typeof file.size === 'number' ? file.size : 0
         };
 
+        // Se escolheu foto e upload ainda em andamento, esperar terminar
+        let finalAvatarImage = profile.avatarImage;
+        if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+          // Avatar foto ainda está sendo feito upload, esperar
+          for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+            await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+          }
+          finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+        }
+
         const payload = {
           user_id: currentUser.uid,
           username: profile.username,
           emoji: profile.emoji,
           avatar_type: profile.avatarType,
-          avatar_image: profile.avatarImage,
+          avatar_image: finalAvatarImage,
           color: profile.color,
           type: 'text',
           text: createFileMessageText(fileMeta),
@@ -2067,12 +2077,23 @@
       const { username, emoji, color, avatarType, avatarImage } = profile;
       const text = messageInput.value.trim();
       if (!text) return;
+      
+      // Se escolheu foto e upload ainda em andamento, esperar terminar
+      let finalAvatarImage = avatarImage;
+      if (avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+        // Avatar foto ainda está sendo feito upload, esperar
+        for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+        }
+        finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+      }
+      
       const payload = {
         user_id: currentUser.uid,
         username,
         emoji,
         avatar_type: avatarType,
-        avatar_image: avatarImage,
+        avatar_image: finalAvatarImage,
         color,
         type: 'text',
         text,
@@ -2083,14 +2104,15 @@
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
         // Salvar no banco: avatar_image agora é URL pública (upload para bucket)
-        // Avatar photo persiste via URL do bucket em vez de data URL gigante
+        // Se avatar_image ainda vazio (upload em background), salvar só avatar_type
+        // Avatar photo adiciona data, prioritário: salvar mensagem agora, foto depois
         const dbPayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
-          avatar_image: payload.avatar_image,
+          avatar_image: payload.avatar_image || '', // Pode estar vazio se upload ainda em andamento
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2273,13 +2295,23 @@
             const audioUrl = publicUrlData && publicUrlData.publicUrl;
             if (!audioUrl) throw new Error('Sem URL pública para áudio');
 
+            // Se escolheu foto e upload ainda em andamento, esperar terminar
+            let finalAvatarImage = profile.avatarImage;
+            if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
+              // Avatar foto ainda está sendo feito upload, esperar
+              for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
+              }
+              finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+            }
+
             const payload = {
               id: `${currentUser.uid}-audio-${Date.now()}`,
               user_id: currentUser.uid,
               username: profile.username,
               emoji: profile.emoji,
               avatar_type: profile.avatarType,
-              avatar_image: profile.avatarImage,
+              avatar_image: finalAvatarImage,
               color: profile.color,
               type: 'audio',
               audio_url: audioUrl,

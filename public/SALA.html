@@ -1994,7 +1994,8 @@
       try {
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
-        // Criar payload para banco sem campos que não existem
+        // Criar payload para banco sem campos que não existem no Supabase
+        // avatar_type e avatar_image são apenas para renderização local (não persistem no banco)
         const dbPayload = {
           user_id: payload.user_id,
           username: payload.username,
@@ -2018,7 +2019,7 @@
           }
         }
 
-        // Enviar via broadcast tambem (com todos os campos para UI)
+        // Enviar via broadcast tambem (com TODOS os campos para renderização com avatar photo)
         if (broadcastChannel && broadcastReady) {
           await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
           console.log('[DEBUG] Mensagem enviada via broadcast');
@@ -2158,7 +2159,8 @@
               created_at: new Date().toISOString()
             };
 
-            // Criar payload para banco sem campos que não existem
+            // Criar payload para banco sem campos que não existem no Supabase
+            // avatar_type e avatar_image são apenas para renderização local (não persistem no banco)
             const dbAudioPayload = {
               user_id: payload.user_id,
               username: payload.username,

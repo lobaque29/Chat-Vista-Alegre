@@ -1357,8 +1357,7 @@
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -1375,8 +1374,7 @@
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(80);
+        .order('created_at', { ascending: false });
 
       if (error) return;
 

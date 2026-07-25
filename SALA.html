@@ -2030,10 +2030,21 @@
       try {
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
+        // Criar payload para banco sem campos que não existem
+        const dbPayload = {
+          user_id: payload.user_id,
+          username: payload.username,
+          emoji: payload.emoji,
+          color: payload.color,
+          type: payload.type,
+          text: payload.text,
+          created_at: payload.created_at
+        };
+
         // SEMPRE tentar salvar no banco primeiro
         let savedToDb = false;
         if (supabase && dbReady) {
-          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(dbPayload);
           if (!insertError) {
             savedToDb = true;
             console.log('[DEBUG] Mensagem salva no banco com sucesso');
@@ -2043,7 +2054,7 @@
           }
         }
 
-        // Enviar via broadcast tambem
+        // Enviar via broadcast tambem (com todos os campos para UI)
         if (broadcastChannel && broadcastReady) {
           await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
           console.log('[DEBUG] Mensagem enviada via broadcast');
@@ -2203,11 +2214,22 @@
               created_at: new Date().toISOString()
             };
 
+            // Criar payload para banco sem campos que não existem
+            const dbAudioPayload = {
+              user_id: payload.user_id,
+              username: payload.username,
+              emoji: payload.emoji,
+              color: payload.color,
+              type: payload.type,
+              audio_url: payload.audio_url,
+              created_at: payload.created_at
+            };
+
             let delivered = await sendOnBroadcastChannel('message', payload);
             let persisted = false;
 
             if (!useBroadcastFallback && dbReady) {
-              const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+              const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(dbAudioPayload);
               if (!insertError) {
                 persisted = true;
               } else {

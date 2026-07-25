@@ -2030,18 +2030,28 @@
       try {
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
-        if (broadcastChannel && broadcastReady) {
-          await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
-        } else if (useBroadcastFallback) {
-          throw new Error('Canal broadcast indisponível');
+        // SEMPRE tentar salvar no banco primeiro
+        let savedToDb = false;
+        if (supabase && dbReady) {
+          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
+          if (!insertError) {
+            savedToDb = true;
+            console.log('[DEBUG] Mensagem salva no banco com sucesso');
+          } else {
+            console.error('[DEBUG] Erro ao salvar:', insertError);
+            dbReady = false;
+          }
         }
 
-        if (!useBroadcastFallback && dbReady) {
-          const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(payload);
-          if (insertError) {
-            dbReady = false;
-            useBroadcastFallback = true;
-          }
+        // Enviar via broadcast tambem
+        if (broadcastChannel && broadcastReady) {
+          await broadcastChannel.send({ type: 'broadcast', event: 'message', payload });
+          console.log('[DEBUG] Mensagem enviada via broadcast');
+        }
+
+        // Se nao salvou em lugar nenhum, nao renderizar
+        if (!savedToDb && (!broadcastChannel || !broadcastReady)) {
+          throw new Error('Falha ao salvar mensagem');
         }
 
         renderIncomingMessage(buildMessageKey(payload), payload);
@@ -2054,7 +2064,8 @@
         if (mainMessageCount % 10 === 0) {
           showAdPrompt();
         }
-      } catch {
+      } catch (error) {
+        console.error('[DEBUG] Erro ao enviar mensagem:', error);
         alert('Não foi possível enviar a mensagem.');
       }
     });

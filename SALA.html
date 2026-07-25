@@ -776,8 +776,11 @@
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const STRICT_NO_HISTORY_ON_REOPEN = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
-    const HISTORY_RETENTION_MINUTES = 30;
-    const HISTORY_RETENTION_MS = HISTORY_RETENTION_MINUTES * 60 * 1000;
+    function getStartOfTodayIso() {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      return startOfDay.toISOString();
+    }
     let messageCleanupInterval = null;
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
@@ -1085,7 +1088,7 @@
     }
 
     function getHistoryCutoffIso() {
-      return new Date(Date.now() - HISTORY_RETENTION_MS).toISOString();
+      return getStartOfTodayIso();
     }
 
     function getCurrentProfile() {

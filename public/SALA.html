@@ -741,6 +741,8 @@
     let usernameLocked = false;
     let avatarPhotoDataUrl = '';
     let avatarPhotoUrl = ''; // URL pública do bucket (para persistência)
+    let avatarUploadInProgress = false; // Flag para saber se upload está em progresso
+    let avatarUploadPromise = Promise.resolve(); // Promise que resolve quando upload termina
     let messagePollingInterval = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
@@ -1944,11 +1946,27 @@
         // Se escolheu foto e upload ainda em andamento, esperar terminar
         let finalAvatarImage = profile.avatarImage;
         if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
-          // Avatar foto ainda está sendo feito upload, esperar
-          for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+          console.log('[DEBUG] Arquivo: Foto selecionada, aguardando upload de avatar...');
+          
+          // Aguardar upload completar (max 10 segundos)
+          let uploadCompleted = false;
+          for (let i = 0; i < 100 && !uploadCompleted; i++) {
+            if (avatarPhotoUrl) {
+              uploadCompleted = true;
+              console.log('[DEBUG] Arquivo: Upload de avatar completou!');
+              break;
+            }
             await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
           }
-          finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+          
+          if (!uploadCompleted || !avatarPhotoUrl) {
+            // Upload falhou ou demorou demais - NÃO enviar com data URL!
+            console.error('[DEBUG] Arquivo: Upload de foto falhou ou timeout. Recusando enviar mensagem.');
+            alert('⚠️ Erro: A foto do avatar não conseguiu fazer upload.\n\nPor favor:\n1. Tente selecionar a foto novamente\n2. Ou use emoji como avatar\n3. Depois compartilhe o arquivo');
+            return; // Não enviar mensagem
+          }
+          
+          finalAvatarImage = avatarPhotoUrl; // Usar APENAS URL pública
         }
 
         const payload = {
@@ -2043,14 +2061,30 @@
       const text = messageInput.value.trim();
       if (!text) return;
       
-      // Se escolheu foto e upload ainda em andamento, esperar terminar
+      // CRÍTICO: Se escolheu foto, DEVE aguardar até que upload complete
       let finalAvatarImage = avatarImage;
       if (avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
-        // Avatar foto ainda está sendo feito upload, esperar
-        for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+        console.log('[DEBUG] Foto selecionada, aguardando upload de avatar...');
+        
+        // Aguardar upload completar (max 10 segundos)
+        let uploadCompleted = false;
+        for (let i = 0; i < 100 && !uploadCompleted; i++) {
+          if (avatarPhotoUrl) {
+            uploadCompleted = true;
+            console.log('[DEBUG] Upload de avatar completou!');
+            break;
+          }
           await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
         }
-        finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+        
+        if (!uploadCompleted || !avatarPhotoUrl) {
+          // Upload falhou ou demorou demais - NÃO enviar com data URL!
+          console.error('[DEBUG] Upload de foto falhou ou timeout. Recusando enviar mensagem.');
+          alert('⚠️ Erro: A foto do avatar não conseguiu fazer upload.\n\nPor favor:\n1. Tente selecionar a foto novamente\n2. Ou use emoji como avatar\n3. Depois envie a mensagem');
+          return; // Não enviar mensagem
+        }
+        
+        finalAvatarImage = avatarPhotoUrl; // Usar APENAS URL pública (nunca data URL)
       }
       
       const payload = {
@@ -2068,14 +2102,14 @@
         payload.id = `${currentUser.uid}-${Date.now()}`;
 
         // Salvar no banco: avatar_image agora é URL pública (upload para bucket)
-        // Avatar photo persiste via URL do bucket em vez de data URL gigante
+        // NUNCA salvar data URL diretamente no banco!
         const dbPayload = {
           id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
           avatar_type: payload.avatar_type,
-          avatar_image: payload.avatar_image,
+          avatar_image: payload.avatar_image || '', // Usar URL ou string vazia
           color: payload.color,
           type: payload.type,
           text: payload.text,
@@ -2241,11 +2275,27 @@
             // Se escolheu foto e upload ainda em andamento, esperar terminar
             let finalAvatarImage = profile.avatarImage;
             if (profile.avatarType === 'photo' && avatarPhotoDataUrl && !avatarPhotoUrl) {
-              // Avatar foto ainda está sendo feito upload, esperar
-              for (let i = 0; i < 50 && !avatarPhotoUrl; i++) {
+              console.log('[DEBUG] Áudio: Foto selecionada, aguardando upload de avatar...');
+              
+              // Aguardar upload completar (max 10 segundos)
+              let uploadCompleted = false;
+              for (let i = 0; i < 100 && !uploadCompleted; i++) {
+                if (avatarPhotoUrl) {
+                  uploadCompleted = true;
+                  console.log('[DEBUG] Áudio: Upload de avatar completou!');
+                  break;
+                }
                 await new Promise(resolve => setTimeout(resolve, 100)); // Esperar 100ms
               }
-              finalAvatarImage = avatarPhotoUrl || avatarPhotoDataUrl;
+              
+              if (!uploadCompleted || !avatarPhotoUrl) {
+                // Upload falhou ou demorou demais - NÃO enviar com data URL!
+                console.error('[DEBUG] Áudio: Upload de foto falhou ou timeout. Recusando enviar mensagem.');
+                alert('⚠️ Erro: A foto do avatar não conseguiu fazer upload.\n\nPor favor:\n1. Tente selecionar a foto novamente\n2. Ou use emoji como avatar\n3. Depois envie o áudio');
+                return; // Não enviar mensagem
+              }
+              
+              finalAvatarImage = avatarPhotoUrl; // Usar APENAS URL pública
             }
 
             const payload = {

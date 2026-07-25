@@ -757,11 +757,6 @@
     const SESSION_STARTED_AT_ISO = new Date().toISOString();
     const STRICT_NO_HISTORY_ON_REOPEN = false;
     const MESSAGE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
-    function getStartOfTodayIso() {
-      // Usar UTC para comparação com banco de dados
-      const now = new Date();
-      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
-    }
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
@@ -1059,10 +1054,6 @@
       return timeTag;
     }
 
-    function getHistoryCutoffIso() {
-      return getStartOfTodayIso();
-    }
-
     function getCurrentProfile() {
       const resolvedAvatarType = avatarPhotoDataUrl ? 'photo' : 'emoji';
       return {
@@ -1340,11 +1331,9 @@
     }
 
     async function loadInitialMessages() {
-      const cutoffIso = getHistoryCutoffIso();
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
-        .gte('created_at', cutoffIso)
         .order('created_at', { ascending: false })
         .limit(200);
 
@@ -1357,12 +1346,10 @@
 
     async function pollLatestMessages() {
       if (!supabase) return;
-      const cutoffIso = getHistoryCutoffIso();
 
       const { data, error } = await supabase
         .from(supabaseConfig.messagesTable)
         .select('*')
-        .gte('created_at', cutoffIso)
         .order('created_at', { ascending: false })
         .limit(80);
 

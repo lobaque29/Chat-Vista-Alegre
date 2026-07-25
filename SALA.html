@@ -736,7 +736,6 @@
     let audioTimeout;
     let canUseRealtime = false;
     let useBroadcastFallback = false;
-    const ENABLE_MESSAGE_HISTORY = true;
     const FORCE_BROADCAST_MODE = false;
     let presenceChannel = null;
     let messagesChannel = null;
@@ -1345,9 +1344,11 @@
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('[DEBUG] Erro ao carregar mensagens:', error);
         throw error;
       }
 
+      console.log('[DEBUG] Carregadas', (data || []).length, 'mensagens');
       (data || []).reverse().forEach(function (row) {
         renderIncomingMessage(buildMessageKey(row), row);
       });
@@ -1361,8 +1362,12 @@
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) return;
+      if (error) {
+        console.error('[DEBUG] Erro em polling:', error);
+        return;
+      }
 
+      console.log('[DEBUG] Poll: ', (data || []).length, 'mensagens');
       (data || []).reverse().forEach(function (row) {
         renderIncomingMessage(buildMessageKey(row), row);
       });
@@ -1510,27 +1515,6 @@
       if (error.hint) parts.push(`hint=${error.hint}`);
       if (parts.length === 0) return String(error);
       return parts.join(' | ');
-    }
-
-    async function cleanupExpiredMessages(options) {
-      // Limpeza de mensagens desabilitada - preservar histórico do dia inteiro
-      return;
-      // if (!supabaseConfig || !supabaseConfig.url || !supabaseConfig.anonKey) return;
-      // const keepalive = Boolean(options && options.keepalive);
-      // const cutoffIso = getHistoryCutoffIso();
-      // const endpoint = `${supabaseConfig.url}/rest/v1/${supabaseConfig.messagesTable}?created_at=lt.${encodeURIComponent(cutoffIso)}`;
-      // try {
-      //   await fetch(endpoint, {
-      //     method: 'DELETE',
-      //     headers: {
-      //       apikey: supabaseConfig.anonKey,
-      //       Authorization: `Bearer ${supabaseConfig.anonKey}`
-      //     },
-      //     keepalive
-      //   });
-      // } catch {
-      //   // Ignora erro para nao bloquear inicializacao/fechamento da pagina.
-      // }
     }
 
     function resolveUserIdByUsername(username) {
@@ -2290,11 +2274,9 @@
         }
 
         try {
-          if (ENABLE_MESSAGE_HISTORY) {
-            await loadInitialMessages();
-          } else {
-            messagesDiv.innerHTML = '';
-          }
+          console.log('[DEBUG] Iniciando carregamento de histórico...');
+          await loadInitialMessages();
+          console.log('[DEBUG] Histórico carregado com sucesso');
           bindPresence();
           if (dbReady) {
             bindMessageRealtime();

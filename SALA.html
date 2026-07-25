@@ -1034,10 +1034,12 @@
     }
 
     function buildMessageKey(payload) {
+      // Usar ID como chave primária (mais confiável que created_at)
+      if (payload.id) return String(payload.id);
       return String(
         (payload.user_id || payload.userId || 'anon') + '|' +
         (payload.type || 'text') + '|' +
-        (payload.created_at || payload.createdAt || payload.id || Date.now())
+        (payload.created_at || payload.createdAt || Date.now())
       );
     }
 
@@ -1957,8 +1959,9 @@
           delivered = true;
         }
 
-        // Criar payload para banco com avatar_type e avatar_image persistidos
+        // Criar payload para banco com avatar_type, avatar_image e ID persistidos
         const dbFilePayload = {
+          id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
@@ -2045,7 +2048,9 @@
 
         // Criar payload para banco COM avatar_type e avatar_image persistidos
         // avatar_type e avatar_image agora salvam no banco para recuperar foto depois
+        // Incluir ID para garantir consistência entre local, broadcast e postgres_changes
         const dbPayload = {
+          id: payload.id,
           user_id: payload.user_id,
           username: payload.username,
           emoji: payload.emoji,
@@ -2230,9 +2235,10 @@
               created_at: new Date().toISOString()
             };
 
-            // Criar payload para banco sem campos que não existem no Supabase
-            // avatar_type e avatar_image são apenas para renderização local (não persistem no banco)
+            // Criar payload para banco COM id para garantir consistência
+            // avatar_type e avatar_image são persistidos no banco desde o último commit
             const dbAudioPayload = {
+              id: payload.id,
               user_id: payload.user_id,
               username: payload.username,
               emoji: payload.emoji,

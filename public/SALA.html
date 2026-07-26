@@ -1488,6 +1488,43 @@
       }, 2500);
     }
 
+    async function clearAllMessages() {
+      if (!supabase || !dbReady) {
+        alert('Banco de dados não está pronto. Tente novamente.');
+        return;
+      }
+
+      const confirmar = confirm('⚠️ ATENÇÃO!\n\nVocê tem certeza que deseja DELETAR TODAS as mensagens do chat?\n\nEsta ação é IRREVERSÍVEL!');
+      if (!confirmar) return;
+
+      try {
+        console.log('[DEBUG] Deletando todas as mensagens...');
+        const { error } = await supabase.from(supabaseConfig.messagesTable).delete().neq('id', '');
+
+        if (error) {
+          console.error('[DEBUG] Erro ao deletar mensagens:', error);
+          alert('❌ Erro ao deletar mensagens: ' + error.message);
+          return;
+        }
+
+        console.log('[DEBUG] Todas as mensagens deletadas com sucesso!');
+        alert('✅ Histórico limpo com sucesso!\n\nRecarregando a página...');
+        
+        // Limpar renderizado
+        messagesDiv.innerHTML = '';
+        renderedMessageKeys.clear();
+        lastSyncTimestamp = 0;
+        
+        // Recarregar após 1 segundo
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      } catch (error) {
+        console.error('[DEBUG] Erro:', error);
+        alert('❌ Erro ao limpar histórico: ' + error.message);
+      }
+    }
+
     function updatePresenceCount() {
       if (!presenceChannel) return;
       const presenceState = presenceChannel.presenceState();

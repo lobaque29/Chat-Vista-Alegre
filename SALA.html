@@ -1430,15 +1430,47 @@ t      // Usar ID como chave primária (mais confiável que created_at)
       isLoadingInitialMessages = true;
 
       try {
-        const { data, error } = await supabase
+        let data, error;
+        
+        // Tentar estratégia 1: Carregar todas as colunas
+        console.log('[DEBUG] Tentando carregar histórico - Estratégia 1: select(*)...');
+        let result = await supabase
           .from(supabaseConfig.messagesTable)
           .select('*')
           .order('created_at', { ascending: false });
-        // SEM LIMITE - carregar TODAS as mensagens do histórico
+        
+        data = result.data;
+        error = result.error;
+
+        // Se falhar, tentar estratégia 2: Sem especificar colunas
+        if (error || !data) {
+          console.log('[DEBUG] Estratégia 1 falhou, tentando Estratégia 2: select()...');
+          result = await supabase
+            .from(supabaseConfig.messagesTable)
+            .select()
+            .order('created_at', { ascending: false });
+          
+          data = result.data;
+          error = result.error;
+        }
+
+        // Se falhar, tentar estratégia 3: Carregar apenas colunas essenciais
+        if (error || !data) {
+          console.log('[DEBUG] Estratégia 2 falhou, tentando Estratégia 3: colunas essenciais...');
+          result = await supabase
+            .from(supabaseConfig.messagesTable)
+            .select('id,user_id,username,text,type,created_at,emoji,avatar_type,avatar_image,color,audio_url')
+            .order('created_at', { ascending: false });
+          
+          data = result.data;
+          error = result.error;
+        }
 
         if (error) {
-          console.error('[DEBUG] Erro ao carregar mensagens iniciais:', error);
-          throw error;
+          console.error('[DEBUG] Erro ao carregar mensagens iniciais após todas as estratégias:', error);
+          // Não lançar erro, apenas avisar e continuar
+          console.warn('[DEBUG] Histórico não disponível - RLS pode estar bloqueando leitura');
+          return;
         }
 
         console.log('[DEBUG] Carregadas', (data || []).length, 'mensagens iniciais');

@@ -961,21 +961,22 @@
 
       const wrapper = document.createElement('span');
       wrapper.className = 'file-message';
+      const isImage = fileMeta.mime && fileMeta.mime.startsWith('image/');
 
-      if (fileMeta.mime && fileMeta.mime.startsWith('image/')) {
+      if (isImage) {
         const img = document.createElement('img');
         img.src = fileMeta.url;
         img.alt = fileMeta.name || 'Imagem enviada';
         wrapper.appendChild(img);
+      } else {
+        const link = document.createElement('a');
+        link.href = fileMeta.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const sizeText = typeof fileMeta.size === 'number' ? ` (${formatFileSize(fileMeta.size)})` : '';
+        link.textContent = `📎 ${fileMeta.name || 'Arquivo'}${sizeText}`;
+        wrapper.appendChild(link);
       }
-
-      const link = document.createElement('a');
-      link.href = fileMeta.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      const sizeText = typeof fileMeta.size === 'number' ? ` (${formatFileSize(fileMeta.size)})` : '';
-      link.textContent = `📎 ${fileMeta.name || 'Arquivo'}${sizeText}`;
-      wrapper.appendChild(link);
 
       msgElem.appendChild(wrapper);
       const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');

@@ -1633,18 +1633,41 @@
             }
           }
 
+          const subject = `Novo pedido de anúncio - ${marca}`;
+          const messageBody = [
+            'Novo pedido de anúncio recebido no chat.',
+            '',
+            `Nome: ${nome}`,
+            `Marca/Empresa: ${marca}`,
+            `Telefone: ${telefone}`,
+            `E-mail: ${email}`,
+            `Destino: ${AD_LEAD_DESTINATION_EMAIL}`,
+            '',
+            `Enviado em: ${new Date().toLocaleString('pt-BR')}`
+          ].join('\n');
+
           window.emailjs.send(emailJsConfig.serviceId, emailJsConfig.templateId, {
             nome,
             marca,
             telefone,
             email,
+            subject,
+            message: messageBody,
+            lead_subject: subject,
+            lead_message: messageBody,
+            sender_name: nome,
+            company_name: marca,
+            phone: telefone,
+            from_name: nome,
+            from_email: email,
             to_email: AD_LEAD_DESTINATION_EMAIL,
             destination_email: AD_LEAD_DESTINATION_EMAIL,
             recipient_email: AD_LEAD_DESTINATION_EMAIL,
-            reply_to: email
+            reply_to: email,
+            sent_at: new Date().toISOString()
           }).then(
             function () {
-              alert('Dados enviados com sucesso!');
+              alert('Pedido de anúncio enviado com sucesso!');
               modal.remove();
             },
             function () {

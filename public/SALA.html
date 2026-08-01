@@ -779,6 +779,10 @@
       <span id="onlineText">pessoa online</span>
     </div>
     <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat">
+      <div class="live-header" id="liveHeader" aria-live="polite">
+        <span class="live-badge">AO VIVO</span>
+        <span class="live-title" id="liveTitle">Chat ao vivo • 1 pessoa online</span>
+      </div>
       <button class="new-messages-btn" id="newMessagesBtn" type="button">⬇ Novas mensagens</button>
     </div>
     <form class="input-area" id="mainChatForm" autocomplete="off">
@@ -804,6 +808,7 @@
     import { supabaseConfig } from './firebase-config.js';
 
     const messagesDiv = document.getElementById('messages');
+    const liveTitleElem = document.getElementById('liveTitle');
     const newMessagesBtn = document.getElementById('newMessagesBtn');
     const MAX_DOM_MESSAGES = 200;
     let userScrolledUp = false;
@@ -1259,6 +1264,13 @@
         : `⬇ ${pendingNewMessages} novas mensagens`;
       newMessagesBtn.textContent = label;
       newMessagesBtn.style.display = 'block';
+    }
+
+    function updateLiveHeaderLabel(onlineCount) {
+      if (!liveTitleElem) return;
+      liveTitleElem.textContent = onlineCount === 1
+        ? 'Chat ao vivo • 1 pessoa online'
+        : `Chat ao vivo • ${onlineCount} pessoas online`;
     }
 
     function appendMessageToDOM(elem) {
@@ -1870,6 +1882,7 @@
       const onlineCount = Object.keys(presenceState).length;
       onlineCountElem.textContent = String(onlineCount);
       onlineTextElem.textContent = onlineCount === 1 ? 'pessoa online' : 'pessoas online';
+      updateLiveHeaderLabel(onlineCount);
     }
 
     async function trackPresence() {
@@ -1891,6 +1904,7 @@
           } catch {
             onlineCountElem.textContent = '0';
             onlineTextElem.textContent = 'erro de presença';
+            updateLiveHeaderLabel(0);
           }
         }
       });
@@ -2853,6 +2867,7 @@
         setInputsDisabled(true);
         onlineCountElem.textContent = '0';
         onlineTextElem.textContent = 'configure o Supabase';
+        updateLiveHeaderLabel(0);
         const aviso = document.createElement('div');
         aviso.className = 'message';
         aviso.textContent = 'Configure as credenciais do Supabase em firebase-config.js para ativar o chat em tempo real.';
@@ -2965,6 +2980,7 @@
       setInputsDisabled(true);
       onlineCountElem.textContent = '0';
       onlineTextElem.textContent = 'configure o Supabase';
+      updateLiveHeaderLabel(0);
       const aviso = document.createElement('div');
       aviso.className = 'message';
       aviso.textContent = 'Configure as credenciais do Supabase em firebase-config.js para ativar o chat em tempo real.';

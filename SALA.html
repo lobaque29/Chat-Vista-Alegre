@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sala de Bate-Papo</title>
-  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --mobile-control-height: 42px;
+      --mobile-control-height: 44px;
     }
 
     body {
@@ -20,10 +20,11 @@
       box-sizing: border-box;
     }
     .chat-container {
-      width: min(520px, calc(100% - 24px));
+      width: min(560px, calc(100% - 24px));
       margin: clamp(10px, 3vw, 40px) auto;
       background: rgba(255,255,255,0.96);
       border: 1px solid #d1d5db;
+      box-sizing: border-box;
       border-radius: 12px;
       box-shadow: 0 6px 24px rgba(15, 23, 42, 0.16);
       padding: clamp(10px, 2vw, 20px);
@@ -32,6 +33,14 @@
       height: min(85dvh, 820px);
       min-height: 520px;
     }
+
+    @media (min-width: 1200px) {
+      .chat-container {
+        width: min(600px, calc(100% - 56px));
+        margin: 28px auto;
+      }
+    }
+
     .messages {
       flex: 1;
       overflow-y: auto;
@@ -161,6 +170,13 @@
     .input-area #messageInput {
       flex: 1 1 260px;
       min-width: 180px;
+      min-height: 42px;
+      height: 42px;
+      max-height: 42px;
+      padding: 10px;
+      line-height: 1.2;
+      box-sizing: border-box;
+      align-self: center;
     }
     .input-area input[type="file"] {
       display: none;
@@ -321,7 +337,7 @@
 
       .input-area select,
       .input-area input[type="color"] {
-        min-height: 38px;
+        min-height: 44px;
         min-width: 44px;
         padding: 6px;
       }
@@ -346,62 +362,89 @@
         min-height: 100dvh;
         margin: 0;
         border-radius: 0;
-        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+        padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
       }
 
       #online-users {
-        font-size: 0.98rem;
-        margin-bottom: 6px;
+        font-size: 0.95rem;
+        margin-bottom: 8px;
       }
 
       .messages {
-        margin-bottom: 8px;
-        padding: 10px;
-        font-size: 0.93rem;
+        margin-bottom: 10px;
+        padding: 10px 8px;
+        font-size: 0.95rem;
+        line-height: 1.45;
       }
 
       .input-area {
-        grid-template-columns: 40px 46px 1fr 1fr;
+        grid-template-columns: 44px 52px 1fr;
         gap: 8px;
-        align-items: stretch;
+        align-items: center;
+      }
+
+      #username {
+        grid-column: 3 / 4;
+      }
+
+      #messageInput {
+        grid-column: 1 / -1;
+      }
+
+      #messageCounter {
+        grid-column: 1 / -1;
+        justify-self: end;
       }
 
       .input-area input[type="text"] {
         min-width: 0;
-        padding: 9px;
-        font-size: 0.9rem;
+        padding: 10px;
+        font-size: 0.95rem;
       }
 
       .input-area button {
+        width: 100%;
         min-height: var(--mobile-control-height);
         height: var(--mobile-control-height);
-        padding: 8px 10px;
-        font-size: 0.86rem;
+        padding: 8px 8px;
+        font-size: 0.84rem;
       }
 
       .input-area select,
       .input-area input[type="color"] {
         min-height: var(--mobile-control-height);
         height: var(--mobile-control-height);
-        min-width: 44px;
+        min-width: 52px;
+        width: auto;
         padding: 6px;
       }
 
-      #fileBtn {
-        grid-column: 1 / 3;
+      #colorPicker {
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        justify-self: start;
       }
 
-      .input-area button[type="submit"] {
-        grid-column: 3 / 5;
+      #fileBtn {
+        grid-column: 1 / 2;
       }
 
       #audioBtn {
+        grid-column: 2 / 3;
+      }
+
+      .input-area button[type="submit"] {
+        grid-column: 3 / 4;
+      }
+
+      #recordingStatus {
         grid-column: 1 / -1;
       }
 
       .avatar-preview {
-        width: 54px;
-        height: 54px;
+        width: 44px;
+        height: 44px;
       }
     }
 
@@ -414,15 +457,33 @@
 
     @media (max-width: 420px) {
       .input-area {
-        grid-template-columns: 48px 48px 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 9px;
+      }
+
+      #username {
+        grid-column: 1 / -1;
       }
 
       #username,
       #messageInput,
-      .input-area button[type="submit"],
-      #audioBtn,
       #recordingStatus {
+        grid-column: 1 / -1;
+      }
+
+      #messageCounter {
+        grid-column: 1 / -1;
+      }
+
+      #fileBtn {
+        grid-column: 1 / 2;
+      }
+
+      #audioBtn {
+        grid-column: 2 / 3;
+      }
+
+      .input-area button[type="submit"] {
         grid-column: 1 / -1;
       }
 
@@ -433,13 +494,20 @@
       }
 
       .avatar-preview {
-        width: 52px;
-        height: 52px;
+        width: 42px;
+        height: 42px;
       }
 
       .input-area button {
         padding: 8px 10px;
         font-size: 0.84rem;
+      }
+
+      #colorPicker {
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        justify-self: start;
       }
     }
     .private-chat {
@@ -705,6 +773,44 @@
       max-width: 100%;
       text-align: center;
     }
+    .send-status {
+      display: none;
+      margin: 0 0 8px;
+      font-size: 0.82rem;
+      color: #475569;
+      text-align: center;
+      min-height: 1.1em;
+    }
+    .send-status.is-busy {
+      display: block;
+    }
+    .retry-send-btn {
+      display: none;
+      margin: 0 0 8px;
+      width: 100%;
+      border: 1px solid #f59e0b;
+      background: #fff7ed;
+      color: #9a3412;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .retry-send-btn.is-visible {
+      display: block;
+    }
+    .char-counter {
+      margin: -2px 0 8px;
+      font-size: 0.78rem;
+      color: #64748b;
+      text-align: right;
+      min-height: 1em;
+    }
+    .char-counter.is-over {
+      color: #b91c1c;
+      font-weight: 700;
+    }
 
     @media (max-width: 700px) {
       .private-chat {
@@ -810,12 +916,15 @@
       <label class="sr-only" for="username">Nome de usuário</label>
       <input type="text" id="username" placeholder="Seu nome" maxlength="16">
       <label class="sr-only" for="messageInput">Mensagem</label>
-      <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+      <input type="text" id="messageInput" placeholder="Digite sua mensagem..." maxlength="250">
+      <div id="messageCounter" class="char-counter" aria-live="polite"></div>
       <button type="submit">Enviar</button>
       <button id="fileBtn" type="button" title="Enviar arquivo">📎 Arquivo</button>
       <button id="audioBtn" type="button">🎤 Áudio</button>
       <span id="recordingStatus" class="recording" hidden>Gravando...</span>
     </form>
+    <div id="sendStatus" class="send-status" aria-live="polite"></div>
+    <button id="retrySendBtn" class="retry-send-btn" type="button">Reenviar última mensagem</button>
   </div>
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -831,6 +940,7 @@
     const mainChatForm = document.getElementById('mainChatForm');
     const usernameInput = document.getElementById('username');
     const messageInput = document.getElementById('messageInput');
+    const messageCounterElem = document.getElementById('messageCounter');
     const avatarPreview = document.getElementById('avatarPreview');
     const avatarPhotoInput = document.getElementById('avatarPhotoInput');
     const clearProfileBtn = document.getElementById('clearProfileBtn');
@@ -839,6 +949,8 @@
     const fileBtn = document.getElementById('fileBtn');
     const audioBtn = document.getElementById('audioBtn');
     const recordingStatus = document.getElementById('recordingStatus');
+    const sendStatusElem = document.getElementById('sendStatus');
+    const retrySendBtn = document.getElementById('retrySendBtn');
     const onlineCountElem = document.getElementById('onlineCount');
     const onlineTextElem = document.getElementById('onlineText');
 
@@ -872,6 +984,7 @@
     let privateInputElem = null;
     let privateSendBtn = null;
     let usernameLocked = false;
+    let failedMainDraft = null;
     let avatarPhotoDataUrl = '';
     let avatarPhotoUrl = ''; // URL pública do bucket (para persistência)
     let avatarUploadInProgress = false; // Flag para saber se upload está em progresso
@@ -1831,6 +1944,57 @@
       if (submitBtn) submitBtn.disabled = disabled;
     }
 
+    function setMainSendBusy(isBusy, message) {
+      mainChatForm.classList.toggle('is-sending', Boolean(isBusy));
+      const submitBtn = mainChatForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = Boolean(isBusy);
+        submitBtn.textContent = isBusy ? 'Enviando...' : 'Enviar';
+      }
+
+      if (sendStatusElem) {
+        sendStatusElem.textContent = isBusy ? (message || 'Processando envio...') : '';
+        sendStatusElem.classList.toggle('is-busy', Boolean(isBusy));
+      }
+    }
+
+    function clearFailedMainDraft() {
+      failedMainDraft = null;
+      if (retrySendBtn) {
+        retrySendBtn.classList.remove('is-visible');
+        retrySendBtn.disabled = false;
+      }
+    }
+
+    function setFailedMainDraft(text) {
+      const safeText = String(text || '').trim();
+      if (!safeText) return;
+      failedMainDraft = { text: safeText };
+      if (retrySendBtn) {
+        retrySendBtn.classList.add('is-visible');
+        retrySendBtn.disabled = false;
+      }
+    }
+
+    function updateMessageCounter() {
+      if (!messageCounterElem || !messageInput) return;
+      const maxLength = typeof messageInput.maxLength === 'number' && messageInput.maxLength > 0
+        ? messageInput.maxLength
+        : 250;
+      const currentLength = messageInput.value.length;
+      messageCounterElem.textContent = `${currentLength}/${maxLength}`;
+      messageCounterElem.classList.toggle('is-over', currentLength > maxLength);
+    }
+
+    function autoResizeMessageInput() {
+      if (!messageInput) return;
+      messageInput.style.height = 'auto';
+      const maxHeight = 148;
+      const nextHeight = Math.min(messageInput.scrollHeight, maxHeight);
+      messageInput.style.height = `${Math.max(56, nextHeight)}px`;
+      messageInput.style.overflowY = messageInput.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+
     async function loadInitialMessages() {
       if (isLoadingInitialMessages) return; // Prevenir race condition
       isLoadingInitialMessages = true;
@@ -2664,6 +2828,7 @@
       const { username, emoji, color, avatarType, avatarImage } = profile;
       const text = messageInput.value.trim();
       if (!text) return;
+      setMainSendBusy(true, 'Enviando sua mensagem...');
       
       // CRÍTICO: Se escolheu foto, DEVE aguardar até que upload complete
       let finalAvatarImage = avatarImage;
@@ -2747,6 +2912,9 @@
         renderIncomingMessage(buildMessageKey(payload), payload);
         lockUsernameChoice();
         messageInput.value = '';
+        updateMessageCounter();
+        autoResizeMessageInput();
+        clearFailedMainDraft();
         stopTypingBroadcast();
         messageInput.focus();
         mainMessageCount++;
@@ -2755,9 +2923,26 @@
         }
       } catch (error) {
         console.error('[DEBUG] Erro ao enviar mensagem:', error);
+        setFailedMainDraft(text);
         alert('Não foi possível enviar a mensagem.');
+      } finally {
+        setMainSendBusy(false);
       }
     });
+
+    if (retrySendBtn) {
+      retrySendBtn.addEventListener('click', function () {
+        if (!failedMainDraft || !failedMainDraft.text) return;
+        if (messageInput) {
+          messageInput.value = failedMainDraft.text;
+          updateMessageCounter();
+          autoResizeMessageInput();
+          messageInput.focus();
+        }
+        retrySendBtn.disabled = true;
+        mainChatForm.requestSubmit();
+      });
+    }
 
       // Scroll inteligente: detectar se usuário scrollou para cima (pausa auto-scroll)
       messagesDiv.addEventListener('scroll', function () {
@@ -2785,7 +2970,16 @@
     });
 
     messageInput.addEventListener('input', function () {
+      autoResizeMessageInput();
+      updateMessageCounter();
       scheduleTypingBroadcast();
+    });
+
+    messageInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        mainChatForm.requestSubmit();
+      }
     });
 
     messageInput.addEventListener('blur', function () {
@@ -2982,6 +3176,7 @@
         mediaRecorder.start();
         recordingStatus.hidden = false;
         audioBtn.textContent = '⏹️ Parar';
+        audioBtn.classList.add('is-recording');
         audioTimeout = setTimeout(() => { if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording(); }, 10000);
       } catch {
         alert('Permissão do microfone negada ou não suportada.');
@@ -2993,6 +3188,7 @@
         mediaRecorder.stop();
         recordingStatus.hidden = true;
         audioBtn.textContent = '🎤 Áudio';
+        audioBtn.classList.remove('is-recording');
         clearTimeout(audioTimeout);
       }
     }
@@ -3126,6 +3322,8 @@
     }
 
     updateAvatarInputState();
+    autoResizeMessageInput();
+    updateMessageCounter();
 
   </script>
 </body>

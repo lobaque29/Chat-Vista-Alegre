@@ -6,6 +6,10 @@
   <title>Sala de Bate-Papo</title>
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --mobile-control-height: 42px;
+    }
+
     body {
       font-family: Arial, sans-serif;
       background: url('https://img.freepik.com/premium-vector/playful-favela-doodle-vector-art-illustration-with-bold-colors-graffiti-white-background_992796-629.jpg?w=2000') no-repeat center center fixed;
@@ -369,16 +373,30 @@
       }
 
       .input-area button {
-        min-height: 40px;
+        min-height: var(--mobile-control-height);
+        height: var(--mobile-control-height);
         padding: 8px 10px;
         font-size: 0.86rem;
       }
 
       .input-area select,
       .input-area input[type="color"] {
-        min-height: 38px;
+        min-height: var(--mobile-control-height);
+        height: var(--mobile-control-height);
         min-width: 44px;
         padding: 6px;
+      }
+
+      #fileBtn {
+        grid-column: 1 / 3;
+      }
+
+      .input-area button[type="submit"] {
+        grid-column: 3 / 5;
+      }
+
+      #audioBtn {
+        grid-column: 1 / -1;
       }
 
       .avatar-preview {
@@ -388,12 +406,9 @@
     }
 
     @media (min-width: 421px) and (max-width: 600px) {
-      .input-area button[type="submit"] {
-        grid-column: 1 / 3;
-      }
-
-      #audioBtn {
-        grid-column: 3 / 5;
+      .input-area button {
+        min-height: var(--mobile-control-height);
+        height: var(--mobile-control-height);
       }
     }
 
@@ -413,6 +428,8 @@
 
       .input-area button {
         width: 100%;
+        min-height: var(--mobile-control-height);
+        height: var(--mobile-control-height);
       }
 
       .avatar-preview {
@@ -421,9 +438,8 @@
       }
 
       .input-area button {
-        min-height: 36px;
-        padding: 6px 8px;
-        font-size: 0.82rem;
+        padding: 8px 10px;
+        font-size: 0.84rem;
       }
     }
     .private-chat {
@@ -791,6 +807,7 @@
     const newMessagesBtn = document.getElementById('newMessagesBtn');
     const MAX_DOM_MESSAGES = 200;
     let userScrolledUp = false;
+    let pendingNewMessages = 0;
     const mainChatForm = document.getElementById('mainChatForm');
     const usernameInput = document.getElementById('username');
     const messageInput = document.getElementById('messageInput');
@@ -1163,8 +1180,24 @@
       requestAnimationFrame(function () {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         userScrolledUp = false;
-        if (newMessagesBtn) newMessagesBtn.style.display = 'none';
+        pendingNewMessages = 0;
+        updateNewMessagesBadge();
       });
+    }
+
+    function updateNewMessagesBadge() {
+      if (!newMessagesBtn) return;
+      if (pendingNewMessages <= 0 || !userScrolledUp) {
+        newMessagesBtn.style.display = 'none';
+        newMessagesBtn.textContent = '⬇ Novas mensagens';
+        return;
+      }
+
+      const label = pendingNewMessages === 1
+        ? '⬇ 1 nova mensagem'
+        : `⬇ ${pendingNewMessages} novas mensagens`;
+      newMessagesBtn.textContent = label;
+      newMessagesBtn.style.display = 'block';
     }
 
     function appendMessageToDOM(elem) {
@@ -1187,8 +1220,8 @@
       if (!userScrolledUp) {
         scrollMessagesToLatest();
       } else {
-        // Mostrar botão de novas mensagens
-        if (newMessagesBtn) newMessagesBtn.style.display = 'block';
+        pendingNewMessages += 1;
+        updateNewMessagesBadge();
       }
     }
 
@@ -1224,7 +1257,6 @@
 
       if (message.type === 'audio' && message.audioUrl) renderAudioMessage(message);
       else if (message.type === 'text' && message.text) renderTextMessage(message);
-      scrollMessagesToLatest();
     }
 
     function buildMessageKey(payload) {
@@ -2494,7 +2526,10 @@
       messagesDiv.addEventListener('scroll', function () {
         const distFromBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight;
         userScrolledUp = distFromBottom > 80;
-        if (!userScrolledUp && newMessagesBtn) newMessagesBtn.style.display = 'none';
+        if (!userScrolledUp) {
+          pendingNewMessages = 0;
+        }
+        updateNewMessagesBadge();
       });
 
       if (newMessagesBtn) {

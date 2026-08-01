@@ -16,59 +16,81 @@
       box-sizing: border-box;
     }
     .chat-container {
-      width: min(860px, calc(100% - 24px));
+      width: min(520px, calc(100% - 24px));
       margin: clamp(10px, 3vw, 40px) auto;
-      background: rgba(255,255,255,0.95);
+      background: rgba(255,255,255,0.96);
+      border: 1px solid #d1d5db;
       border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-      padding: clamp(14px, 2.4vw, 32px);
+      box-shadow: 0 6px 24px rgba(15, 23, 42, 0.16);
+      padding: clamp(10px, 2vw, 20px);
       display: flex;
       flex-direction: column;
-      height: min(82dvh, 860px);
+      height: min(85dvh, 820px);
       min-height: 520px;
     }
     .messages {
       flex: 1;
       overflow-y: auto;
-      border: 1px solid #ccc;
+      border: 1px solid #d1d5db;
       border-radius: 8px;
-      padding: clamp(12px, 2vw, 18px);
+      padding: 8px 6px;
       margin-bottom: 12px;
-      background: #f3f4f6;
-      font-size: clamp(0.98rem, 1.8vw, 1.15rem);
-      line-height: 1.45;
+      background: #f8fafc;
+      font-size: clamp(0.93rem, 1.6vw, 1.05rem);
+      line-height: 1.4;
+      position: relative;
+      scroll-behavior: smooth;
     }
     .message {
-      margin-bottom: 12px;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      animation: msgIn 0.18s ease;
+      transition: background 0.15s;
+    }
+    .message:hover {
+      background: rgba(15, 23, 42, 0.05);
+    }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .message span.username {
-      font-weight: bold;
-      margin-right: 6px;
+      font-weight: 700;
       cursor: pointer;
       text-decoration: none;
-      transition: color 0.2s;
+      transition: opacity 0.15s;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      flex-shrink: 0;
     }
     .message span.username:hover {
-      color: #d32f2f;
-      text-decoration: none;
+      opacity: 0.75;
+    }
+    .msg-text {
+      color: #0f172a;
+      word-break: break-word;
+      flex: 1;
     }
     .avatar-badge {
-      width: 40px;
-      height: 40px;
+      width: 24px;
+      height: 24px;
       border-radius: 999px;
       overflow: hidden;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      flex: 0 0 40px;
+      flex: 0 0 24px;
       background: #e2e8f0;
-      border: 1px solid #cbd5e1;
-      font-size: 0.95em;
+      border: none;
+      font-size: 0.75em;
       line-height: 1;
       color: #0f172a;
+      vertical-align: middle;
     }
     .avatar-badge img {
       width: 100%;
@@ -83,7 +105,34 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 2px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      animation: msgIn 0.18s ease;
+    }
+    .new-messages-btn {
+      position: sticky;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      animation: popIn 0.18s ease;
+      width: fit-content;
+      margin: 4px auto 0;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: translateX(-50%) scale(0.85); }
+      to   { opacity: 1; transform: translateX(-50%) scale(1); }
     }
     .input-area {
       display: flex;
@@ -96,7 +145,9 @@
       min-width: 110px;
       padding: 10px;
       border-radius: 8px;
-      border: 1px solid #ccc;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
       font-size: 0.96rem;
     }
     .input-area #username {
@@ -203,11 +254,12 @@
     }
     .message-time {
       display: inline-block;
-      margin-left: 8px;
-      font-size: 0.78rem;
+      margin-left: 4px;
+      font-size: 0.72rem;
       color: #64748b;
-      font-weight: 600;
+      font-weight: 500;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .audio-message .message-time {
       margin-left: auto;
@@ -590,6 +642,40 @@
       user-select: none;
     }
     .online-icon { font-size: 1.2em; }
+    .live-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .live-badge {
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      animation: livePulse 2s infinite;
+    }
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .live-title {
+      color: #0f172a;
+      font-family: 'Permanent Marker', cursive, sans-serif;
+      font-size: 1.05em;
+      letter-spacing: 0.5px;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     @media (max-width: 700px) {
       .private-chat {
@@ -676,7 +762,9 @@
       <span class="online-icon">🧑</span>
       <span id="onlineText">pessoa online</span>
     </div>
-    <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat"></div>
+    <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Mensagens do chat">
+      <button class="new-messages-btn" id="newMessagesBtn" type="button">⬇ Novas mensagens</button>
+    </div>
     <form class="input-area" id="mainChatForm" autocomplete="off">
       <span id="avatarPreview" class="avatar-preview" role="button" tabindex="0" title="Clique para escolher sua foto"></span>
       <label class="sr-only" for="avatarPhotoInput">Foto do avatar</label>
@@ -700,6 +788,9 @@
     import { supabaseConfig } from './firebase-config.js';
 
     const messagesDiv = document.getElementById('messages');
+    const newMessagesBtn = document.getElementById('newMessagesBtn');
+    const MAX_DOM_MESSAGES = 200;
+    let userScrolledUp = false;
     const mainChatForm = document.getElementById('mainChatForm');
     const usernameInput = document.getElementById('username');
     const messageInput = document.getElementById('messageInput');
@@ -929,12 +1020,13 @@
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
       msgElem.appendChild(buildUsernameTag(payload));
-      msgElem.append(` ${payload.text}`);
+      const textSpan = document.createElement('span');
+      textSpan.className = 'msg-text';
+      textSpan.textContent = payload.text;
+      msgElem.appendChild(textSpan);
       const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
-      if (timeTag) {
-        msgElem.appendChild(timeTag);
-      }
-      messagesDiv.appendChild(msgElem);
+      if (timeTag) msgElem.appendChild(timeTag);
+      appendMessageToDOM(msgElem);
     }
 
     function renderFileMessage(payload, fileMeta) {
@@ -942,31 +1034,33 @@
       msgElem.className = 'message';
       msgElem.appendChild(buildUsernameTag(payload));
 
-      const wrapper = document.createElement('span');
-      wrapper.className = 'file-message';
       const isImage = fileMeta.mime && fileMeta.mime.startsWith('image/');
-
       if (isImage) {
         const img = document.createElement('img');
         img.src = fileMeta.url;
         img.alt = fileMeta.name || 'Imagem enviada';
+        img.style.cssText = 'max-width:160px;max-height:120px;border-radius:6px;border:1px solid #cbd5e1;margin-top:4px;display:block';
+        const wrapper = document.createElement('span');
+        wrapper.className = 'msg-text file-message';
         wrapper.appendChild(img);
+        msgElem.appendChild(wrapper);
       } else {
         const link = document.createElement('a');
         link.href = fileMeta.url;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
+        link.style.color = '#60a5fa';
         const sizeText = typeof fileMeta.size === 'number' ? ` (${formatFileSize(fileMeta.size)})` : '';
         link.textContent = `📎 ${fileMeta.name || 'Arquivo'}${sizeText}`;
+        const wrapper = document.createElement('span');
+        wrapper.className = 'msg-text';
         wrapper.appendChild(link);
+        msgElem.appendChild(wrapper);
       }
 
-      msgElem.appendChild(wrapper);
       const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
-      if (timeTag) {
-        msgElem.appendChild(timeTag);
-      }
-      messagesDiv.appendChild(msgElem);
+      if (timeTag) msgElem.appendChild(timeTag);
+      appendMessageToDOM(msgElem);
     }
 
     function formatFileSize(bytes) {
@@ -1011,7 +1105,34 @@
     function scrollMessagesToLatest() {
       requestAnimationFrame(function () {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        userScrolledUp = false;
+        if (newMessagesBtn) newMessagesBtn.style.display = 'none';
       });
+    }
+
+    function appendMessageToDOM(elem) {
+      // Mover o botão "novas mensagens" para fora e colocar a mensagem antes dele
+      const btn = document.getElementById('newMessagesBtn');
+      if (btn) {
+        messagesDiv.insertBefore(elem, btn);
+      } else {
+        messagesDiv.appendChild(elem);
+      }
+      // Limitar DOM: remover mensagens antigas além do limite
+      const allMsgs = messagesDiv.querySelectorAll('.message, .audio-message');
+      if (allMsgs.length > MAX_DOM_MESSAGES) {
+        const excess = allMsgs.length - MAX_DOM_MESSAGES;
+        for (let i = 0; i < excess; i++) {
+          if (allMsgs[i]) allMsgs[i].remove();
+        }
+      }
+      // Auto-scroll se usuário não scrollou para cima
+      if (!userScrolledUp) {
+        scrollMessagesToLatest();
+      } else {
+        // Mostrar botão de novas mensagens
+        if (newMessagesBtn) newMessagesBtn.style.display = 'block';
+      }
     }
 
     function scrollPrivateMessagesToLatest() {
@@ -1028,13 +1149,11 @@
       const audio = document.createElement('audio');
       audio.controls = true;
       audio.src = payload.audioUrl;
-      audio.style.verticalAlign = 'middle';
+      audio.style.cssText = 'height:32px;vertical-align:middle';
       msgElem.appendChild(audio);
       const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
-      if (timeTag) {
-        msgElem.appendChild(timeTag);
-      }
-      messagesDiv.appendChild(msgElem);
+      if (timeTag) msgElem.appendChild(timeTag);
+      appendMessageToDOM(msgElem);
     }
 
     function renderIncomingMessage(messageKey, payload) {
@@ -2313,6 +2432,19 @@
         alert('Não foi possível enviar a mensagem.');
       }
     });
+
+      // Scroll inteligente: detectar se usuário scrollou para cima (pausa auto-scroll)
+      messagesDiv.addEventListener('scroll', function () {
+        const distFromBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight;
+        userScrolledUp = distFromBottom > 80;
+        if (!userScrolledUp && newMessagesBtn) newMessagesBtn.style.display = 'none';
+      });
+
+      if (newMessagesBtn) {
+        newMessagesBtn.addEventListener('click', function () {
+          scrollMessagesToLatest();
+        });
+      }
 
     usernameInput.addEventListener('change', saveProfilePreference);
     colorPicker.addEventListener('change', saveProfilePreference);

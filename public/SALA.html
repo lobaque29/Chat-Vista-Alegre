@@ -819,6 +819,7 @@
     let broadcastReady = false;
     let dbReady = false;
     let supabase = null;
+    let authSubscription = null;
     const renderedMessageKeys = new Set();
     const renderedPrivateMessageIds = new Set();
     const recentUserIdsByUsername = new Map();
@@ -839,6 +840,7 @@
     let avatarUploadInProgress = false; // Flag para saber se upload está em progresso
     let avatarUploadPromise = Promise.resolve(); // Promise que resolve quando upload termina
     let messagePollingInterval = null;
+    let privateTitleFlashTimer = null;
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
@@ -882,6 +884,61 @@
       const sessionClientId = `${base}:${sessionSuffix}`;
       window.sessionStorage.setItem(sessionKey, sessionClientId);
       return sessionClientId;
+    }
+
+    async function authenticateSupabaseUser() {
+      if (!supabase) throw new Error('Cliente Supabase não inicializado');
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      const existingUser = sessionData && sessionData.session && sessionData.session.user;
+      if (existingUser && existingUser.id) {
+        return {
+          uid: existingUser.id,
+          isAnonymous: Boolean(existingUser.is_anonymous)
+        };
+      }
+
+      const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
+      if (signInError) {
+        throw signInError;
+      }
+
+      const signedUser = (signInData && signInData.user)
+        || (signInData && signInData.session && signInData.session.user);
+
+      if (!signedUser || !signedUser.id) {
+        throw new Error('Falha ao autenticar usuário anônimo no Supabase');
+      }
+
+      return {
+        uid: signedUser.id,
+        isAnonymous: Boolean(signedUser.is_anonymous)
+      };
+    }
+
+    function bindAuthStateListener() {
+      if (!supabase || authSubscription) return;
+
+      const binding = supabase.auth.onAuthStateChange(function (_event, session) {
+        const sessionUser = session && session.user;
+        if (sessionUser && sessionUser.id) {
+          currentUser = {
+            uid: sessionUser.id,
+            isAnonymous: Boolean(sessionUser.is_anonymous)
+          };
+          return;
+        }
+
+        currentUser = null;
+      });
+
+      authSubscription = binding && binding.data && binding.data.subscription
+        ? binding.data.subscription
+        : null;
     }
 
     function saveProfilePreference() {
@@ -2674,7 +2731,8 @@
 
       try {
         supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey);
-        currentUser = { uid: getOrCreateClientId() };
+        currentUser = await authenticateSupabaseUser();
+        bindAuthStateListener();
         canUseRealtime = true;
         
         // Se houver foto de avatar no localStorage, fazer upload automático
@@ -2741,12 +2799,13 @@
           avisoFallback.textContent = `Chat em modo simplificado: mensagens em tempo real ativas. Motivo: ${errorText}. Configure tabela/bucket no Supabase para histórico e áudio.`;
           messagesDiv.appendChild(avisoFallback);
         }
-      } catch {
+      } catch (authError) {
         setInputsDisabled(true);
         const aviso = document.createElement('div');
         aviso.className = 'message';
-        aviso.textContent = 'Falha ao conectar ao Supabase. Verifique tabela, bucket e configurações.';
+        aviso.textContent = 'Falha ao autenticar no Supabase. Ative Anonymous Auth em Authentication > Providers e confira as configurações.';
         messagesDiv.appendChild(aviso);
+        console.error('[DEBUG] Erro de autenticação Supabase:', authError);
       }
     }
 
@@ -2760,6 +2819,10 @@
       if (messagesChannel) messagesChannel.unsubscribe();
       if (broadcastChannel) broadcastChannel.unsubscribe();
       if (privateInboxChannel) privateInboxChannel.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+        authSubscription = null;
+      }
       privateOutChannels.forEach(function (channel) {
         channel.unsubscribe();
       });

@@ -692,6 +692,19 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .typing-indicator {
+      display: none;
+      margin: 6px auto 4px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.08);
+      color: #1d4ed8;
+      font-size: 0.82rem;
+      font-weight: 700;
+      width: fit-content;
+      max-width: 100%;
+      text-align: center;
+    }
 
     @media (max-width: 700px) {
       .private-chat {
@@ -783,6 +796,7 @@
         <span class="live-badge">AO VIVO</span>
         <span class="live-title" id="liveTitle">Chat ao vivo • 1 pessoa online</span>
       </div>
+      <div class="typing-indicator" id="typingIndicator" aria-live="polite"></div>
       <button class="new-messages-btn" id="newMessagesBtn" type="button">⬇ Novas mensagens</button>
     </div>
     <form class="input-area" id="mainChatForm" autocomplete="off">
@@ -809,6 +823,7 @@
 
     const messagesDiv = document.getElementById('messages');
     const liveTitleElem = document.getElementById('liveTitle');
+    const typingIndicatorElem = document.getElementById('typingIndicator');
     const newMessagesBtn = document.getElementById('newMessagesBtn');
     const MAX_DOM_MESSAGES = 200;
     let userScrolledUp = false;
@@ -863,6 +878,10 @@
     let avatarUploadPromise = Promise.resolve(); // Promise que resolve quando upload termina
     let messagePollingInterval = null;
     let privateTitleFlashTimer = null;
+    let typingBroadcastTimer = null;
+    let typingStopTimer = null;
+    let typingIsActive = false;
+    const remoteTypingUsers = new Map();
     let privateTitleFlashRemaining = 0;
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
@@ -1273,11 +1292,114 @@
         : `Chat ao vivo • ${onlineCount} pessoas online`;
     }
 
+    function updateTypingIndicator() {
+      if (!typingIndicatorElem) return;
+
+      const activeNames = Array.from(remoteTypingUsers.values()).filter(function (entry) {
+        return entry && entry.username;
+      });
+
+      if (!activeNames.length) {
+        typingIndicatorElem.textContent = '';
+        typingIndicatorElem.style.display = 'none';
+        return;
+      }
+
+      const names = activeNames.map(function (entry) {
+        return entry.username;
+      });
+      const label = names.length === 1
+        ? `${names[0]} está digitando...`
+        : `${names.slice(0, 2).join(', ')}${names.length > 2 ? ` e mais ${names.length - 2}` : ''} estão digitando...`;
+
+      typingIndicatorElem.textContent = label;
+      typingIndicatorElem.style.display = 'block';
+    }
+
+    function clearTypingEntry(userId) {
+      if (!userId) return;
+      remoteTypingUsers.delete(userId);
+      updateTypingIndicator();
+    }
+
+    function applyRemoteTyping(payload) {
+      if (!payload) return;
+      const userId = payload.user_id || payload.userId || '';
+      const username = payload.username || 'Anônimo';
+      const isTyping = Boolean(payload.is_typing || payload.isTyping);
+
+      if (!userId || (currentUser && userId === currentUser.uid)) return;
+
+      if (isTyping) {
+        const previous = remoteTypingUsers.get(userId);
+        if (previous && previous.timerId) {
+          window.clearTimeout(previous.timerId);
+        }
+
+        const timerId = window.setTimeout(function () {
+          clearTypingEntry(userId);
+        }, 2200);
+
+        remoteTypingUsers.set(userId, { userId, username, timerId });
+        updateTypingIndicator();
+        return;
+      }
+
+      clearTypingEntry(userId);
+    }
+
+    function stopTypingBroadcast() {
+      if (!typingIsActive) return;
+      typingIsActive = false;
+      window.clearTimeout(typingBroadcastTimer);
+      window.clearTimeout(typingStopTimer);
+      typingBroadcastTimer = null;
+      typingStopTimer = null;
+      sendOnBroadcastChannel('typing', {
+        user_id: currentUser && currentUser.uid ? currentUser.uid : '',
+        username: getCurrentProfile().username || 'Anônimo',
+        is_typing: false,
+        created_at: new Date().toISOString()
+      }).catch(function () {});
+    }
+
+    function scheduleTypingBroadcast() {
+      if (!currentUser) return;
+
+      window.clearTimeout(typingBroadcastTimer);
+      window.clearTimeout(typingStopTimer);
+
+      const textValue = messageInput && typeof messageInput.value === 'string' ? messageInput.value.trim() : '';
+      if (!textValue) {
+        stopTypingBroadcast();
+        return;
+      }
+
+      if (!typingIsActive) {
+        typingIsActive = true;
+        sendOnBroadcastChannel('typing', {
+          user_id: currentUser.uid,
+          username: getCurrentProfile().username || 'Anônimo',
+          is_typing: true,
+          created_at: new Date().toISOString()
+        }).catch(function () {});
+      }
+
+      typingStopTimer = window.setTimeout(function () {
+        stopTypingBroadcast();
+      }, 1400);
+    }
+
     function appendMessageToDOM(elem) {
       // Mover o botão "novas mensagens" para fora e colocar a mensagem antes dele
       const btn = document.getElementById('newMessagesBtn');
       if (btn) {
-        messagesDiv.insertBefore(elem, btn);
+        const typingNode = document.getElementById('typingIndicator');
+        if (typingNode) {
+          messagesDiv.insertBefore(elem, typingNode);
+        } else {
+          messagesDiv.insertBefore(elem, btn);
+        }
       } else {
         messagesDiv.appendChild(elem);
       }
@@ -1940,6 +2062,10 @@
           if (!message || !message.to_user_id || !message.from_user_id) return;
           if (message.to_user_id !== currentUser.uid && message.from_user_id !== currentUser.uid) return;
           storePrivateMessage(message);
+        })
+        .on('broadcast', { event: 'typing' }, function (eventPayload) {
+          if (!eventPayload || !eventPayload.payload) return;
+          applyRemoteTyping(eventPayload.payload);
         })
         .subscribe(function (status) {
           if (status === 'SUBSCRIBED') {
@@ -2621,6 +2747,7 @@
         renderIncomingMessage(buildMessageKey(payload), payload);
         lockUsernameChoice();
         messageInput.value = '';
+        stopTypingBroadcast();
         messageInput.focus();
         mainMessageCount++;
         if (mainMessageCount % 10 === 0) {
@@ -2655,6 +2782,14 @@
       saveProfilePreference();
       if (!presenceChannel || !currentUser) return;
       trackPresence().catch(function () {});
+    });
+
+    messageInput.addEventListener('input', function () {
+      scheduleTypingBroadcast();
+    });
+
+    messageInput.addEventListener('blur', function () {
+      stopTypingBroadcast();
     });
 
     avatarPhotoInput.addEventListener('change', async function () {
@@ -2957,6 +3092,7 @@
 
     window.addEventListener('beforeunload', function () {
       stopPrivateTitleFlash();
+      stopTypingBroadcast();
       if (messagePollingInterval) {
         clearInterval(messagePollingInterval);
         messagePollingInterval = null;

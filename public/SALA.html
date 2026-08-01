@@ -862,6 +862,8 @@
     const pageDefaultTitle = document.title;
     const AD_LEAD_DESTINATION_EMAIL = 'ruanlobaque20@gmail.com';
     const FILE_MESSAGE_PREFIX = '__CHATVISTA_FILE__:';
+    const LOCAL_HISTORY_KEY = 'chatvista.localHistory.v1';
+    const MAX_LOCAL_HISTORY = 150;
     const EMAILJS_CONFIG_STORAGE_KEY = 'chatvista.emailjsConfig';
     const EMAILJS_DEFAULT_CONFIG = {
       publicKey: 'SEU_EMAILJS_PUBLIC_KEY',
@@ -1029,6 +1031,65 @@
         text: payload.text,
         audioUrl: payload.audio_url || payload.audioUrl || ''
       };
+    }
+
+    function loadLocalHistoryMessages() {
+      try {
+        const raw = window.localStorage.getItem(LOCAL_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(function (item) {
+          return item && typeof item === 'object' && (item.text || item.audio_url || item.audioUrl);
+        });
+      } catch {
+        return [];
+      }
+    }
+
+    function saveMessageToLocalHistory(payload) {
+      try {
+        const history = loadLocalHistoryMessages();
+        const key = buildMessageKey(payload);
+        const next = history.filter(function (item) {
+          return buildMessageKey(item) !== key;
+        });
+
+        next.push({
+          id: payload.id || '',
+          user_id: payload.user_id || payload.userId || '',
+          username: payload.username || 'Anônimo',
+          text: payload.text || '',
+          type: payload.type || 'text',
+          audio_url: payload.audio_url || payload.audioUrl || '',
+          created_at: payload.created_at || payload.createdAt || new Date().toISOString(),
+          emoji: payload.emoji || '',
+          avatar_type: payload.avatar_type || payload.avatarType || 'none',
+          avatar_image: payload.avatar_image || payload.avatarImage || '',
+          color: payload.color || '#2563eb'
+        });
+
+        if (next.length > MAX_LOCAL_HISTORY) {
+          next.splice(0, next.length - MAX_LOCAL_HISTORY);
+        }
+
+        window.localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(next));
+      } catch {}
+    }
+
+    function hydrateMessagesFromLocalHistory() {
+      const cached = loadLocalHistoryMessages();
+      if (!cached.length) return 0;
+
+      cached
+        .sort(function (a, b) {
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        })
+        .forEach(function (row) {
+          renderIncomingMessage(buildMessageKey(row), row);
+        });
+
+      return cached.length;
     }
 
     function createAvatarBadge(avatarType, avatarImage, emoji) {
@@ -1250,6 +1311,7 @@
       if (renderedMessageKeys.has(messageKey)) return;
       renderedMessageKeys.add(messageKey);
       const message = normalizeMessage(payload);
+      saveMessageToLocalHistory(payload);
 
       if (message.username && message.userId) {
         recentUserIdsByUsername.set(String(message.username), String(message.userId));
@@ -1657,6 +1719,10 @@
           console.error('[DEBUG] Erro ao carregar mensagens iniciais após todas as estratégias:', error);
           // Não lançar erro, apenas avisar e continuar
           console.warn('[DEBUG] Histórico não disponível - RLS pode estar bloqueando leitura');
+          const loadedFromLocal = hydrateMessagesFromLocalHistory();
+          if (loadedFromLocal > 0) {
+            console.log('[DEBUG] Histórico local carregado:', loadedFromLocal);
+          }
           return;
         }
 
@@ -1673,6 +1739,13 @@
         });
 
         console.log('[DEBUG] Histórico inicial carregado e renderizado com sucesso');
+
+        if (!data || data.length === 0) {
+          const loadedFromLocal = hydrateMessagesFromLocalHistory();
+          if (loadedFromLocal > 0) {
+            console.log('[DEBUG] Sem histórico no banco. Histórico local carregado:', loadedFromLocal);
+          }
+        }
       } finally {
         isLoadingInitialMessages = false;
       }
@@ -2371,13 +2444,13 @@
           created_at: payload.created_at
         };
 
-        if (!useBroadcastFallback && dbReady) {
+        if (supabase) {
           const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(dbFilePayload);
-          if (insertError) {
-            dbReady = false;
-            useBroadcastFallback = true;
-          } else {
+          if (!insertError) {
             delivered = true;
+            dbReady = true;
+          } else {
+            console.warn('[DEBUG] Insert arquivo no banco falhou:', formatSupabaseError(insertError));
           }
         }
 
@@ -2486,14 +2559,14 @@
 
         // SEMPRE tentar salvar no banco primeiro
         let savedToDb = false;
-        if (supabase && dbReady) {
+        if (supabase) {
           const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(dbPayload);
           if (!insertError) {
             savedToDb = true;
+            dbReady = true;
             console.log('[DEBUG] Mensagem salva no banco com sucesso');
           } else {
             console.error('[DEBUG] Erro ao salvar:', insertError);
-            dbReady = false;
           }
         }
 
@@ -2713,13 +2786,13 @@
             let delivered = await sendOnBroadcastChannel('message', payload);
             let persisted = false;
 
-            if (!useBroadcastFallback && dbReady) {
+            if (supabase) {
               const { error: insertError } = await supabase.from(supabaseConfig.messagesTable).insert(dbAudioPayload);
               if (!insertError) {
                 persisted = true;
+                dbReady = true;
               } else {
-                dbReady = false;
-                useBroadcastFallback = true;
+                console.warn('[DEBUG] Insert áudio no banco falhou:', formatSupabaseError(insertError));
               }
             }
 

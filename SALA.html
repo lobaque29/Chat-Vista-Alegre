@@ -1254,6 +1254,40 @@
     const PROFILE_STORAGE_KEY = 'chatvista.profile.v1';
     const DEFAULT_AVATAR_SYMBOL = '👤';
 
+    // URL safety helpers
+    function isValidHttpUrl(value) {
+      try {
+        const u = new URL(String(value));
+        return (u.protocol === 'https:' || u.protocol === 'http:');
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function isSafeImageUrl(value) {
+      if (!value) return false;
+      const s = String(value).trim();
+      if (s.startsWith('data:image/')) return true;
+      if (!isValidHttpUrl(s)) return false;
+      try {
+        const u = new URL(s);
+        return u.protocol === 'https:' || u.protocol === 'http:';
+      } catch { return false; }
+    }
+
+    function isSafeHref(value) {
+      if (!value) return false;
+      const s = String(value).trim();
+      return isValidHttpUrl(s) && s.startsWith('https:');
+    }
+
+    function isSafeAudioUrl(value) {
+      if (!value) return false;
+      const s = String(value).trim();
+      if (s.startsWith('data:audio/')) return true;
+      return isSafeHref(s);
+    }
+
     function isSupabaseConfigured() {
       return (
         typeof supabaseConfig.url === 'string' &&
@@ -1479,10 +1513,14 @@
       if (avatarType === 'none' || !avatarType) {
         badge.textContent = ''; // Sem avatar visível
       } else if (avatarType === 'photo' && avatarImage) {
-        const img = document.createElement('img');
-        img.src = avatarImage;
-        img.alt = 'avatar';
-        badge.appendChild(img);
+        if (isSafeImageUrl(avatarImage)) {
+          const img = document.createElement('img');
+          img.src = avatarImage;
+          img.alt = 'avatar';
+          badge.appendChild(img);
+        } else {
+          badge.textContent = DEFAULT_AVATAR_SYMBOL; // unsafe URL fallback
+        }
       } else if (emoji) {
         badge.textContent = emoji;
       } else {
@@ -1552,7 +1590,9 @@
       msgElem.style.setProperty('--user-color', payload.color || '#2563eb');
       msgElem.appendChild(buildUsernameTag(payload));
 
-      const isImage = fileMeta.mime && fileMeta.mime.startsWith('image/');
+      // Determine if we should render as an image (and the URL is safe)
+      const probableImage = fileMeta.mime && fileMeta.mime.startsWith('image/');
+      const isImage = probableImage && isSafeImageUrl(fileMeta.url);
       if (isImage) {
         const img = document.createElement('img');
         img.src = fileMeta.url;
@@ -1564,9 +1604,16 @@
         msgElem.appendChild(wrapper);
       } else {
         const link = document.createElement('a');
-        link.href = fileMeta.url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
+        if (isSafeHref(fileMeta.url)) {
+          link.href = fileMeta.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        } else {
+          // mark as non-navigable when URL not safe
+          link.removeAttribute('href');
+          link.style.cursor = 'default';
+          link.style.opacity = '0.8';
+        }
         link.style.color = '#60a5fa';
         const sizeText = typeof fileMeta.size === 'number' ? ` (${formatFileSize(fileMeta.size)})` : '';
         link.textContent = `📎 ${fileMeta.name || 'Arquivo'}${sizeText}`;
@@ -1856,9 +1903,16 @@
       msgElem.appendChild(buildUsernameTag(payload));
       const audio = document.createElement('audio');
       audio.controls = true;
-      audio.src = payload.audioUrl;
-      audio.style.cssText = 'height:32px;vertical-align:middle';
-      msgElem.appendChild(audio);
+      if (isSafeAudioUrl(payload.audioUrl)) {
+        audio.src = payload.audioUrl;
+        audio.style.cssText = 'height:32px;vertical-align:middle';
+        msgElem.appendChild(audio);
+      } else {
+        const info = document.createElement('div');
+        info.className = 'msg-text';
+        info.textContent = '[Áudio indisponível]';
+        msgElem.appendChild(info);
+      }
       const timeTag = createMessageTimeTag(payload.created_at || payload.createdAt, 'message-time');
       if (timeTag) msgElem.appendChild(timeTag);
       appendMessageToDOM(msgElem);

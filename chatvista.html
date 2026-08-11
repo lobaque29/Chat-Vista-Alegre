@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">     
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>
+            Chat Vista Alegre
+        </title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                /* Fundo com imagem de favela colorida */
+                background: url('https://img.freepik.com/premium-vector/playful-favela-doodle-vector-art-illustration-with-bold-colors-graffiti-white-background_992796-629.jpg?w=2000') no-repeat center center fixed;
+                background-size: cover;
+                margin: 0;
+                min-height: 100dvh;
+                padding: clamp(12px, 3vw, 28px);
+                box-sizing: border-box;
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+            }
+
+            .container {
+                width: min(380px, 100%);
+                margin: clamp(14px, 4vw, 48px) auto 0 auto;
+                padding: clamp(16px, 3.5vw, 24px);
+                background-color: rgba(255,255,255,0.93);
+                border: 1px solid #ccc;
+                border-radius: 14px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+                position: relative;
+                z-index: 2;
+            }   
+
+            .enter-logo {
+                display: block;
+                width: min(280px, 100%);
+                margin: 4px auto 16px auto;
+                border-radius: 10px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            }
+
+            button[type="submit"] {
+                width: 100%;
+                min-height: 50px;
+                padding: 12px;
+                background-color: #007bff;
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-size: 1.08em;
+                font-weight: 700;
+                cursor: pointer;
+                transition: background 0.2s;
+            }   
+
+            button[type="submit"]:hover {
+                background-color: #ffc107;
+                color: #222;
+            }
+
+            button[type="submit"]:focus-visible {
+                outline: 2px solid #111;
+                outline-offset: 2px;
+            }
+
+            @media (max-width: 700px) {
+                body {
+                    background-attachment: scroll;
+                    background-position: top center;
+                }
+
+                .container {
+                    border-radius: 12px;
+                }
+            }
+
+            @media (max-width: 420px) {
+                .container {
+                    width: 100%;
+                    margin-top: 8px;
+                    padding: 14px;
+                }
+
+                .enter-logo {
+                    width: min(240px, 100%);
+                    margin-bottom: 12px;
+                }
+
+                button[type="submit"] {
+                    min-height: 48px;
+                    font-size: 1em;
+                }
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <img src="https://github.com/lobaque29/Chat-Vista-Alegre/raw/refs/heads/main/vistaalegre.jpg.jpg" alt="Logo do Chat Vista Alegre" class="enter-logo">
+            <form id="loginForm">
+                <button type="submit" aria-label="Entrar na sala de bate-papo">Entrar</button>
+            </form>
+        </div>
+
+        <script>
+            // Redireciona ao clicar em "Entrar"
+            document.getElementById('loginForm').addEventListener('submit', function(event) {
+                event.preventDefault(); // Impede o envio padrão do formulário
+                window.location.href = "SALA.html"; // Redireciona para SALA.html
+            });
+        </script>
+    </body>
+</html>

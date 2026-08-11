@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "messages": {
+      ".read": "auth != null",
+      "$msgId": {
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
+        "uid": { ".validate": "newData.isString() && newData.val() === auth.uid" },
+        "username": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 32" },
+        "emoji": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 4" },
+        "color": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)" },
+        "type": { ".validate": "newData.val() === 'text' || newData.val() === 'audio'" },
+        "text": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length > 0 && newData.val().length <= 500)" },
+        "audioUrl": { ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^https:\\/\\/.+/))" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "username": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 32" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

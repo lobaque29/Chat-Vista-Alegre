@@ -39,18 +39,18 @@
       background-size: cover;
     }
     .chat-container {
-      width: min(560px, calc(100% - 24px));
+      width: min(640px, calc(100% - 24px));
       margin: clamp(10px, 3vw, 40px) auto;
       background: rgba(255,255,255,0.96);
       border: 1px solid #d1d5db;
       box-sizing: border-box;
-      border-radius: 12px;
-      box-shadow: 0 6px 24px rgba(15, 23, 42, 0.16);
-      padding: clamp(10px, 2vw, 20px);
+      border-radius: 16px;
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+      padding: clamp(14px, 2vw, 24px);
       display: flex;
       flex-direction: column;
-      height: min(85dvh, 820px);
-      min-height: 520px;
+      height: min(88dvh, 860px);
+      min-height: 540px;
     }
 
     @media (min-width: 1200px) {
@@ -63,15 +63,17 @@
     .messages {
       flex: 1;
       overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 6px;
-      margin-bottom: 12px;
-      background: var(--message-alt-bg);
-      font-size: clamp(0.93rem, 1.6vw, 1.05rem);
-      line-height: 1.4;
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: 20px;
+      padding: 16px 16px 14px;
+      margin-bottom: 16px;
+      background: rgba(248,250,252,0.92);
+      font-size: clamp(1rem, 1.55vw, 1.12rem);
+      line-height: 1.7;
       position: relative;
       scroll-behavior: smooth;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.9), inset 0 10px 22px rgba(15,23,42,0.05);
+      min-height: 360px;
     }
 
     .chat-header,
@@ -81,6 +83,7 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 12px;
+      flex-wrap: wrap;
     }
 
     .chat-header {
@@ -195,30 +198,37 @@
       font-size: 0.95rem;
     }
 
+    .message {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(148,163,184,0.18);
+      border-left: 5px solid var(--user-color, rgba(37,99,235,0.4));
+      box-shadow: 0 2px 8px rgba(15,23,42,0.08);
+      animation: msgIn 0.18s ease;
+      transition: transform 0.18s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .message:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(15,23,42,0.15);
+      background: rgba(255,255,255,1);
+    }
     .message.mine {
-      background: rgba(37, 99, 235, 0.08);
-      border-left: 3px solid var(--primary);
+      background: rgba(37, 99, 235, 0.12);
+      border-color: rgba(37, 99, 235, 0.3);
+      align-self: flex-end;
     }
 
     .message.mine .msg-text {
-      color: #0f172a;
+      color: #111827;
     }
 
-    .message {
-      margin-bottom: 2px;
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      animation: msgIn 0.18s ease;
-      transition: background 0.15s;
-    }
-    .message:hover {
-      background: rgba(15, 23, 42, 0.05);
-    }
     @keyframes msgIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .message span.username {
@@ -228,16 +238,23 @@
       transition: opacity 0.15s;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       flex-shrink: 0;
+      background: rgba(248,250,252,0.95);
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.2);
+      font-size: 0.95rem;
     }
     .message span.username:hover {
-      opacity: 0.75;
+      opacity: 0.95;
     }
     .msg-text {
       color: #0f172a;
       word-break: break-word;
       flex: 1;
+      font-size: 1rem;
+      line-height: 1.7;
     }
     .avatar-badge {
       width: 24px;
@@ -337,14 +354,36 @@
     }
     .input-area #messageInput {
       flex: 1 1 260px;
-      min-width: 180px;
-      min-height: 60px;
-      max-height: 120px;
-      padding: 10px;
-      line-height: 1.3;
+      min-width: 220px;
+      min-height: 120px;
+      max-height: 220px;
+      padding: 16px 16px;
+      line-height: 1.6;
       box-sizing: border-box;
       align-self: stretch;
       font-family: inherit;
+      font-size: 1rem;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 18px;
+      resize: vertical;
+      color: #0f172a;
+    }
+    .input-area #messageInput:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+    }
+    .input-area #messageInput::placeholder {
+      color: #94a3b8;
+    }
+    .input-area #messageInput:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+    }
+    .input-area #messageInput::placeholder {
+      color: #94a3b8;
     }
     .message-help {
       font-size: 0.82rem;
@@ -517,16 +556,16 @@
 
       .input-area button {
         width: 100%;
-        min-height: 40px;
-        padding: 8px 10px;
-        font-size: 0.93rem;
+        min-height: 44px;
+        padding: 10px 10px;
+        font-size: 0.95rem;
       }
 
       .input-area select,
       .input-area input[type="color"] {
-        min-height: 44px;
-        min-width: 44px;
-        padding: 6px;
+        min-height: 46px;
+        min-width: 46px;
+        padding: 8px;
       }
 
       .input-area button[type="submit"] {
@@ -1494,6 +1533,8 @@
 
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
+      msgElem.dataset.messageDate = formatMessageDate(payload.created_at || payload.createdAt);
+      msgElem.style.setProperty('--user-color', payload.color || '#2563eb');
       msgElem.appendChild(buildUsernameTag(payload));
       const textSpan = document.createElement('span');
       textSpan.className = 'msg-text';
@@ -1507,6 +1548,8 @@
     function renderFileMessage(payload, fileMeta) {
       const msgElem = document.createElement('div');
       msgElem.className = 'message';
+      msgElem.dataset.messageDate = formatMessageDate(payload.created_at || payload.createdAt);
+      msgElem.style.setProperty('--user-color', payload.color || '#2563eb');
       msgElem.appendChild(buildUsernameTag(payload));
 
       const isImage = fileMeta.mime && fileMeta.mime.startsWith('image/');
@@ -1770,6 +1813,7 @@
     }
 
     function appendMessageToDOM(elem) {
+      insertDateSeparatorIfNeeded(elem);
       // Mover o botão "novas mensagens" para fora e colocar a mensagem antes dele
       const btn = document.getElementById('newMessagesBtn');
       if (btn) {
@@ -1865,6 +1909,60 @@
       timeTag.className = className || 'message-time';
       timeTag.textContent = timeText;
       return timeTag;
+    }
+
+    function formatMessageDate(createdAtValue) {
+      if (!createdAtValue) return '';
+      const date = new Date(createdAtValue);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleDateString('pt-BR');
+    }
+
+    function getMessageDateLabel(createdAtValue) {
+      if (!createdAtValue) return '';
+      const date = new Date(createdAtValue);
+      if (Number.isNaN(date.getTime())) return '';
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      if (date.toDateString() === today.toDateString()) return 'Hoje';
+      if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      });
+    }
+
+    function createDateSeparator(createdAtValue) {
+      const label = getMessageDateLabel(createdAtValue);
+      if (!label) return null;
+      const separator = document.createElement('div');
+      separator.className = 'date-separator';
+      separator.textContent = label;
+      return separator;
+    }
+
+    function getLastMessageDate() {
+      const messages = messagesDiv.querySelectorAll('.message[data-message-date], .audio-message[data-message-date]');
+      if (!messages.length) return '';
+      return messages[messages.length - 1].dataset.messageDate || '';
+    }
+
+    function insertDateSeparatorIfNeeded(messageElem) {
+      if (!messageElem || !messageElem.dataset.messageDate) return;
+      const lastDate = getLastMessageDate();
+      if (lastDate === messageElem.dataset.messageDate) return;
+      const separator = createDateSeparator(messageElem.dataset.messageDate);
+      if (!separator) return;
+      const btn = document.getElementById('newMessagesBtn');
+      const typingNode = document.getElementById('typingIndicator');
+      if (btn) {
+        if (typingNode) messagesDiv.insertBefore(separator, typingNode);
+        else messagesDiv.insertBefore(separator, btn);
+      } else {
+        messagesDiv.appendChild(separator);
+      }
     }
 
     function getCurrentProfile() {
